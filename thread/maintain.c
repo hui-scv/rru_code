@@ -11,6 +11,7 @@
 
 #include "../include/thread/rru_thread.h"
 #include "../include_pc/struct_pc.h"
+#include "../include_pc/thread/main_handle.h"
 
 
 #define RRU_INF_TYPE 1
@@ -29,8 +30,9 @@ short spot_id_pc(unsigned short type);
 ***********************************************/
 void *maintain_thread(void)
 {
+	unsigned short head, ie_id, ie_size;
 	char *msg;
-	int sk, acq, ret;
+	int sk, acq, ret, rec_num = 0, num = 0;
 
 	do
 	{
@@ -39,13 +41,43 @@ void *maintain_thread(void)
 	acq = main_accept(sk);	
 
 	msg = (char *)malloc(sizeof(char) * 512);
+	//memset(msg, 0, sizeof(char) * 512);
 
 	while(1)
 	{
 		memset(msg, 0, sizeof(char) * 512);
-		if(recv(acq, msg, 512, 0) > 0)
+
+		if((num = recv(acq, msg, 512, 0)) > 0)
 		{
-			ret = main_handle(msg);
+			rec_num += num;
+			while(rec_num < 6)
+			{
+				num = recv(acq, msg + rec_num, 512, 0);
+				rec_num += num;
+			}
+
+			//printf("rec_num: %d\n", rec_num);
+			head = ((MSG_HEAD_PC *)msg)->msg_head;
+			head = ntohs(head);
+			//printf("head: 0x%x\n", head);
+
+			if(head == head_pc.msg_head)
+			{
+				ie_id = *(unsigned short *)(msg + 2);
+				ie_size = *(unsigned short *)(msg + 4);
+				//ie_id = ntohs(ie_id);
+				//ie_size = ntohs(ie_size);
+
+				while(rec_num < (ie_size + 2))
+				{
+					num = recv(acq, msg + rec_num, 512, 0);
+					rec_num += num;
+				}
+
+				ret = main_handle(msg + 2);
+			}
+	
+			rec_num = 0;
 		}else
 		{
 			close(acq);
@@ -56,49 +88,39 @@ void *maintain_thread(void)
 
 int main_handle(char *msg)
 {
-	unsigned short head, ie_id, ie_size;
+	unsigned short ie_id, ie_size;
 	short type;
-	
-	head = ((MSG_HEAD_PC *)msg)->msg_head;
-	head = ntohs(head);
-	msg = msg + 2;
-	
-	ie_id = *(unsigned short *)msg;
+	int ret;
+
+	ie_id = *(unsigned short *)(msg);
 	ie_size = *(unsigned short *)(msg + 2);
-	ie_id = ntohs(ie_id);
-	ie_size = ntohs(ie_size);
+	//ie_id = ntohs(ie_id);
+	//ie_size = ntohs(ie_size);
 
 	type = spot_id_pc(ie_id);
 	
-	if(head == head_pc.msg_head)
+	printf("ie_id : %d; ie_size : %d\n", ie_id, ie_size);
+
+	switch(type)
 	{
-		printf("head : 0x%x; ie_id : 0x%x; ie_size : 0x%x\n", head, ie_id, ie_size);
-		
-		switch(type)
-		{
-			case RRU_INF_TYPE:
-				
-				break;
-			case RRU_STA_TYPE:
-				
-				break;
-			case RRU_ALA_TYPE:
-				
-				break;
-			case RRU_TES_TYPE:
-				
-				break;
-			default:
-				printf("ie_id error!\n");
-				return -2;
-		}
-	}else
-	{
-		printf("msg_head error!\n");
-		return -1;
+		case RRU_INF_TYPE:
+			ret = inftype_handle(msg, ie_id);
+			break;
+		case RRU_STA_TYPE:
+			ret = statype_handle(msg, ie_id);
+			break;
+		case RRU_ALA_TYPE:
+			ret = alatype_handle(msg, ie_id);
+			break;
+		case RRU_TES_TYPE:
+			ret = testype_handle(msg, ie_id);
+			break;
+		default:
+			printf("ie_id error!\n");
+			return -2;
 	}
 
-	return 0;
+	return ret;
 }
 
 short spot_id_pc(unsigned short type)

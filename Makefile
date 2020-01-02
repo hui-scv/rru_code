@@ -1,4 +1,4 @@
-obj = rru.o init.o thread/rru_thread.o thread/maintain.o
+obj = rru.o init.o thread/rru_thread.o thread/maintain.o thread/main_handle.o
 rru : $(obj)
 	gcc $(obj) -static -lpthread -o rru
 
