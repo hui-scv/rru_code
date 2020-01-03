@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include "include/init.h"
 #include "include_pc/init_struct_pc.h"
+#include "include/init_struct.h"
 #include "include/thread/rru_thread.h"
 
 

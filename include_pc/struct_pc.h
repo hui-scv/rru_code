@@ -32,7 +32,7 @@ extern CL_RRUCIR_PC rrucir_pc;
 extern CL_SYSTIME_PC systime_pc;
 extern CL_RRUMODE_PC rrumode_pc;
 extern SQ_RFCHSTA_PC rfchsta_pc;
-extern SQ_RFCHANS_PC rfchans_pc;
+extern SQ_RFCHANS_PC rfchans_pc[8];
 extern SQ_CIRSTA_PC cirsta_pc;
 extern SQ_CIRANS_PC cirans_pc;
 extern SQ_OSCSTA_PC oscsta_pc;

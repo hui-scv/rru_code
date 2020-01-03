@@ -93,10 +93,12 @@ SQ_RFCHSTA_PC rfchsta_pc =
 	.ie_size = 5,
 };
 
-SQ_RFCHANS_PC rfchans_pc =
-{
+SQ_RFCHANS_PC rfchans_pc[8] =
+{[0 ... 7] = 
+	{
 	.ie_id = 352,
 	.ie_size = 13,
+	}
 };
 
 SQ_CIRSTA_PC cirsta_pc =

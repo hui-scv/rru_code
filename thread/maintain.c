@@ -21,7 +21,7 @@
 
 int main_link(void);
 int main_accept(int sk);
-int main_handle(char *msg);
+int main_handle(char *msg, int acq);
 short spot_id_pc(unsigned short type);
 
 
@@ -74,7 +74,7 @@ void *maintain_thread(void)
 					rec_num += num;
 				}
 
-				ret = main_handle(msg + 2);
+				ret = main_handle(msg + 2, acq);
 			}
 	
 			rec_num = 0;
@@ -86,7 +86,7 @@ void *maintain_thread(void)
 	}
 }
 
-int main_handle(char *msg)
+int main_handle(char *msg, int acq)
 {
 	unsigned short ie_id, ie_size;
 	short type;
@@ -104,16 +104,16 @@ int main_handle(char *msg)
 	switch(type)
 	{
 		case RRU_INF_TYPE:
-			ret = inftype_handle(msg, ie_id);
+			ret = inftype_handle(msg, ie_id, acq);
 			break;
 		case RRU_STA_TYPE:
-			ret = statype_handle(msg, ie_id);
+			ret = statype_handle(msg, ie_id, acq);
 			break;
 		case RRU_ALA_TYPE:
-			ret = alatype_handle(msg, ie_id);
+			ret = alatype_handle(msg, ie_id, acq);
 			break;
 		case RRU_TES_TYPE:
-			ret = testype_handle(msg, ie_id);
+			ret = testype_handle(msg, ie_id, acq);
 			break;
 		default:
 			printf("ie_id error!\n");
