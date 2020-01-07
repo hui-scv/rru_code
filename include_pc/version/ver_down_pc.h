@@ -1,7 +1,7 @@
-#ifndef ___ver_down_
-#define ___ver_down_
+#ifndef ___ver_pc_down_
+#define ___ver_pc_down_
 
-#include "../msg_head.h"
+#include "../msg_head_pc.h"
 
 
 typedef struct vd_softchk		//软件版本核对结果IE

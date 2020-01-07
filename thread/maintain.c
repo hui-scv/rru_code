@@ -11,7 +11,7 @@
 
 #include "../include/thread/rru_thread.h"
 #include "../include_pc/struct_pc.h"
-#include "../include_pc/thread/main_handle.h"
+#include "../include/thread/main_handle.h"
 
 
 #define RRU_INF_TYPE 1
@@ -149,7 +149,7 @@ int main_link(void)
 	memset(&main_addr, 0, sizeof(struct sockaddr_in));
 
 	main_addr.sin_family = AF_INET;
-	main_addr.sin_port = htons(33333);
+	main_addr.sin_port = htons(66666);
 	main_addr.sin_addr.s_addr = inet_addr("192.168.100.33");
 
 	sk = socket(AF_INET, SOCK_STREAM, 0);

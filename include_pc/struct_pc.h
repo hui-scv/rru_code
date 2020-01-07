@@ -51,7 +51,7 @@ extern PQ_CPURATEANS_PC cpurateans_pc;
 extern PQ_RATECYC_PC ratecyc_pc;
 extern PQ_RATECYCANS_PC ratecycans_pc;
 extern PQ_RRUTEM_PC rrutem_pc;
-extern PQ_SWRSTAANS_PC swrstaans_pc;
+extern PQ_RRUTEMANS_PC rrutemans_pc;
 extern PQ_TEMTHR_PC temthr_pc;
 extern PQ_TEMTHRANS_PC temthrans_pc;
 extern PQ_STAMACH_PC stamach_pc;

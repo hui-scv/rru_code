@@ -1,5 +1,5 @@
-#ifndef ___reset_
-#define ___reset_
+#ifndef ___reset_h
+#define ___reset_h
 
 #include "../msg_head.h"
 

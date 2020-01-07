@@ -209,7 +209,7 @@ PQ_RRUTEM_PC rrutem_pc =
 	.ie_size = 4,
 };
 
-PQ_SWRSTAANS_PC swrstaans_pc =
+PQ_RRUTEMANS_PC rrutemans_pc =
 {
 	.ie_id = 453,
 	.ie_size = 13,

@@ -13,10 +13,17 @@ void main()
 
 	init();
 
-	ret = pthread_create(&thread_id[0], NULL, (void *)maintain_thread, NULL);
+	//ret = pthread_create(&thread_id[0], NULL, (void *)maintain_thread, NULL);
 	if(ret != 0)
 	{
 		printf("create mainten_thread error!\n");
+		return;
+	}
+
+	ret = pthread_create(&thread_id[1], NULL, (void *)cpri1_thread, NULL);
+	if(ret != 0)
+	{
+		printf("create cpri1_thread error!\n");
 		return;
 	}
 

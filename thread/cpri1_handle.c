@@ -2,16 +2,16 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/socket.h>
-#include "../include/thread/main_handle.h"
+#include "../include/thread/cpri1_handle.h"
 #include "../include_pc/struct_pc.h"
 #include "../include/struct.h"
 
 
 
 /********************************************RRU信息记录分割线***************************************/
-int write_str(char *msg, int i);
+int cpri1_write_str(char *msg, int i);
 
-int inftype_handle(char *msg, unsigned short ie_id, int acq)
+int cpri1_inftype_handle(char *msg, unsigned short ie_id, int acq)
 {
 	switch(ie_id)
 	{
@@ -67,7 +67,7 @@ int inftype_handle(char *msg, unsigned short ie_id, int acq)
 	return 0;
 }
 
-int write_str(char *msg, int i)
+int cpri1_write_str(char *msg, int i)
 {
 	int fd, ret;
 
@@ -100,7 +100,7 @@ fd_error:
 
 
 /********************************************RRU状态响应分割线***************************************/
-int statype_handle(char *msg, unsigned short ie_id, int acq)
+int cpri1_statype_handle(char *msg, unsigned short ie_id, int acq)
 {
 	char ch, send_msg[512] = {0x7e, 0xaa, 0, 0};
 	
@@ -171,7 +171,7 @@ int statype_handle(char *msg, unsigned short ie_id, int acq)
 
 
 /********************************************RRU报警查询分割线***************************************/
-int alatype_handle(char *msg, unsigned short ie_id, int acq)
+int cpri1_alatype_handle(char *msg, unsigned short ie_id, int acq)
 {
 	char send_msg[512] = {0x7e, 0xaa, 0, 0};
 	
@@ -192,7 +192,7 @@ int alatype_handle(char *msg, unsigned short ie_id, int acq)
 
 
 /********************************************RRU射频通道测试分割线***************************************/
-int testype_handle(char *msg, unsigned short ie_id, int acq)
+int cpri1_testype_handle(char *msg, unsigned short ie_id, int acq)
 {
 	char send_msg[512] = {0x7e, 0xaa, 0, 0};
 

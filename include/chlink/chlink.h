@@ -161,12 +161,12 @@ typedef struct cl_softchk		//软件版本核对结果IE
 	unsigned char file_ver[40];	//文件版本
 } CL_SOFTCHK;
 
-typedef struct cl_irmode		//Ir口工作模式配置IE
+typedef struct cl_irmodecfg		//Ir口工作模式配置IE
 {
 	unsigned short ie_id;		//IE标志
 	unsigned short ie_size;		//IE长度
 	unsigned int ir_mode;		//Ir口工作模式
-} CL_IRMODE;
+} CL_IRMODECFG;
 
 typedef struct cl_ftpinfo		//FTP信息配置IE
 {
@@ -183,14 +183,14 @@ typedef struct cl_chlinkans		//通道建立配置应答IE
 	unsigned int res;		//返回结果
 } CL_CHLINKANS;
 
-typedef struct cl_irmodeans		//Ir口工作模式配置响应IE
+typedef struct cl_irmodecfgans		//Ir口工作模式配置响应IE
 {
 	unsigned short ie_id;		//IE标志
 	unsigned short ie_size;		//IE长度
 	unsigned char mray_num;		//主光纤号
 	unsigned char sray_num;		//辅光纤号
 	unsigned int res;		//返回结果
-} CL_IRMODEANS;
+} CL_IRMODECFGANS;
 
 typedef struct cl_verupdata		//版本更新结果指示IE
 {
@@ -201,3 +201,4 @@ typedef struct cl_verupdata		//版本更新结果指示IE
 } CL_VERUPDATA;
 
 #endif
+

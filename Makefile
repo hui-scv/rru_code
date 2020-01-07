@@ -1,4 +1,4 @@
-obj = rru.o init.o thread/rru_thread.o thread/maintain.o thread/main_handle.o
+obj = rru.o init.o thread/rru_thread.o thread/maintain.o thread/main_handle.o thread/cpri1_thread.o thread/cpri1_handle.o
 rru : $(obj)
 	gcc $(obj) -static -lpthread -o rru
 
@@ -7,5 +7,4 @@ SUBDIRS = $(subst :,/,$(SUBDIR))
 SOURCE = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)*.o))
 BAK = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)*~))
 clean:
-	#rm -rf *.o rru *~ thread/*.o thread/*~
 	rm -rf rru $(BAK) $(SOURCE)

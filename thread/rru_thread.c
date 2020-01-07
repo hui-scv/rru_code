@@ -1,42 +1,37 @@
 #include <stdio.h>
 #include "../include/thread/rru_thread.h"
 
-void *cpri_thread1(void)
-{
-	
-}
-
-void *cpri_thread2(void)
+void *cpri2_thread(void)
 {
 
 }
 
-void *cpri_thread3(void)
+void *cpri3_thread(void)
 {
 
 }
 
-void *cpri_thread4(void)
+void *cpri4_thread(void)
 {
 
 }
 
-void *cpri_thread5(void)
+void *cpri5_thread(void)
 {
 
 }
 
-void *cpri_thread6(void)
+void *cpri6_thread(void)
 {
 
 }
 
-void *cpri_thread7(void)
+void *cpri7_thread(void)
 {
 
 }
 
-void *cpri_thread8(void)
+void *cpri8_thread(void)
 {
 
 }

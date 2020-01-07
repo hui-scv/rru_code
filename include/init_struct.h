@@ -79,11 +79,74 @@ CL_SYSTIME systime =
 	.ie_size = 11,
 };
 
+CL_LINKADDR linkaddr =
+{
+	.ie_id = 12,
+	.ie_size = 8,
+};
+
 CL_RRUMODE rrumode =
 {
 	.ie_id = 13,
 	.ie_size = 6,
 };
+
+CL_SOFTCHK softchk =
+{
+	.ie_id = 14,
+	.ie_size = 289,
+};
+
+CL_IRMODECFG irmodecfg =
+{
+	.ie_id = 504,
+	.ie_size = 8,
+};
+
+CL_FTPINFO ftpinfo =
+{
+	.ie_id = 505,
+	.ie_size = 84,
+};
+
+CL_CHLINKANS chlinkans =
+{
+	.ie_id = 21,
+	.ie_size = 8,
+};
+
+CL_IRMODECFGANS irmodecfgans =
+{
+	.ie_id = 555,
+	.ie_size = 10,
+};
+
+CL_VERUPDATA verupdata =
+{
+	.ie_id = 31,
+	.ie_size = 9,
+};
+/*************************************************************************/
+
+VD_VERDOWNANS verdownans =
+{
+	.ie_id = 101,
+	.ie_size = 9,
+};
+
+VD_VERDOWNRES verdownres =
+{
+	.ie_id = 111,
+	.ie_size = 9,
+};
+/*************************************************************************/
+
+VA_RRUVERACTANS rruveractans =
+{
+	.ie_id = 201,
+	.ie_size = 9,
+};
+/*************************************************************************/
 
 SQ_RFCHSTA rfchsta =
 {
@@ -157,6 +220,18 @@ SQ_IRMODEANS irmodeans =
 	.ie_size = 8,
 };
 
+SQ_INITCHK initchk =
+{
+	.ie_id = 308,
+	.ie_size = 4,
+};
+
+SQ_INITCHKANS initchkans =
+{
+	.ie_id = 358,
+	.ie_size = 20,
+};
+
 SQ_RAYSTA raysta =
 {
 	.ie_id = 309,
@@ -205,10 +280,34 @@ PQ_RRUTEM rrutem =
 	.ie_size = 4,
 };
 
-PQ_SWRSTAANS swrstaans =
+PQ_RRUTEMANS rrutemans =
 {
 	.ie_id = 453,
 	.ie_size = 13,
+};
+
+PQ_SWRSTA swrsta =
+{
+	.ie_id = 405,
+	.ie_size = 5,
+};
+
+PQ_SWRSTAANS swrstaans =
+{
+	.ie_id = 454,
+	.ie_size = 9,
+};
+
+PQ_SWRTHR swrthr =
+{
+	.ie_id = 406,
+	.ie_size = 4,
+};
+
+PQ_SWRTHRANS swrthrans =
+{
+	.ie_id = 455,
+	.ie_size = 12,
 };
 
 PQ_TEMTHR temthr =
@@ -223,6 +322,18 @@ PQ_TEMTHRANS temthrans =
 	.ie_size = 12,
 };
 
+PQ_OUTPOWER outpower =
+{
+	.ie_id = 408,
+	.ie_size = 5,
+};
+
+PQ_OUTPOWERANS outpowerans =
+{
+	.ie_id = 457,
+	.ie_size = 7,	
+};
+
 PQ_STAMACH stamach =
 {
 	.ie_id = 409,
@@ -234,6 +345,123 @@ PQ_STAMACHANS stamachans =
 	.ie_id = 458,
 	.ie_size = 5,
 };
+/*************************************************************************/
+
+PC_SYSTIME systimecfg =	//系统时间配置IE
+{
+	.ie_id = 11,
+	.ie_size = 11,
+};
+
+PC_IQDATACH iqdatachcfg =
+{
+	.ie_id = 501,
+	.ie_size = 8,
+};
+
+PC_RATECYC ratecyccfg =
+{
+	.ie_id = 502,
+	.ie_size = 8,
+};
+
+PC_SWRTHR swrthrcfg =
+{
+	.ie_id = 503,
+	.ie_size = 12,
+};
+
+PC_TEMTHR temthrcfg =
+{
+	.ie_id = 505,
+	.ie_size = 16,
+};
+
+PC_RFCHSTA rfchstacfg =
+{
+	.ie_id = 302,
+	.ie_size = 5,
+};
+
+PC_ANTCFG antcfg =
+{
+	.ie_id = 507,
+	.ie_size = 10,
+};
+
+PC_SYSTIMEANS systimecfgans =
+{
+	.ie_id = 551,
+	.ie_size = 8,
+};
+
+PC_IQDATACHANS iqdatachcfgans =
+{
+	.ie_id = 552,
+	.ie_size = 8,
+};
+
+PC_RATECYCANS ratecyccfgans =
+{
+	.ie_id = 553,
+	.ie_size = 8,
+};
+
+PC_SWRTHRANS swrthrcfgans =
+{
+	.ie_id = 554,
+	.ie_size = 8,
+};
+
+/*PC_IRMODEANS irmodecfgans =
+{
+	.ie_id = 555,
+	.ie_size = 10,
+};*/
+
+PC_TEMTHRANS temthrcfgans =
+{
+	.ie_id = 556,
+	.ie_size = 12,
+};
+
+PC_RFCHSTAANS rfchstacfgans =
+{
+	.ie_id = 557,
+	.ie_size = 9,
+};
+
+PC_ANTCFGANS antcfgans =
+{
+	.ie_id = 559,
+	.ie_size = 9,
+};
+/*************************************************************************/
+
+DM_CYCDELAY cycdelaycfg =
+{
+	.ie_id = 901,
+	.ie_size = 5,
+};
+
+DM_RAYDELAYANS raydelayans =
+{
+	.ie_id = 911,
+	.ie_size = 29,
+};
+
+DM_DELAYCFG delaycfg =
+{
+	.ie_id = 921,
+	.ie_size = 25,
+};
+
+DM_DELAYCFGANS delaycfgans =
+{
+	.ie_id = 931,
+	.ie_size = 6,
+};
+/*************************************************************************/
 
 AR_ALAQUE alaque =
 {
@@ -246,6 +474,58 @@ AR_ALAREP alarep =
 	.ie_id = 1001,
 	.ie_size = 138,
 };
+/*************************************************************************/
+
+LOG_UPQUE upque =
+{
+	.ie_id = 1201,
+	.ie_size = 224,
+};
+
+LOG_UPANS upans =
+{
+	.ie_id = 1211,
+	.ie_size = 12,
+};
+
+LOG_UPRES upres =
+{
+	.ie_id = 1221,
+	.ie_size = 8,
+};
+/*************************************************************************/
+
+RET_RESET reset =
+{
+	.ie_id = 1301,
+	.ie_size = 8,
+};
+/*************************************************************************/
+
+PLT_CFG pltcfg =
+{
+	.ie_id = 1501,
+	.ie_size = 13,
+};
+
+PLT_FREPIT_FDD frepit_fdd =
+{
+	.ie_id = 1503,
+	.ie_size = 31,
+};
+
+PLT_CFGANS pltcfgans =
+{
+	.ie_id = 1511,
+	.ie_size = 12,
+};
+
+PLT_FREPITANS frepitans =
+{
+	.ie_id = 1512,
+	.ie_size = 13,
+};
 /***********************************************/
 
 #endif
+
