@@ -11,4 +11,22 @@ typedef struct msg_head
 	unsigned int inc_num;		//流水号
 } MSG_HEAD;
 
+typedef struct rru_head
+{
+	unsigned char bbu_num;
+	unsigned char rru_id;
+	unsigned char rru_mac[6];
+} RRU_HEAD;
+
+typedef struct bbu_head
+{
+	unsigned char bbu_num;
+	unsigned char rru_id;
+	unsigned char bbu_id;
+	unsigned char rru_mac[6];
+	unsigned char rru_ip[4];
+	unsigned char bbu_ip[4];
+	unsigned char subnet_mask[4];
+} BBU_HEAD;
+
 #endif

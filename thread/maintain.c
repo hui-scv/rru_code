@@ -149,7 +149,7 @@ int main_link(void)
 	memset(&main_addr, 0, sizeof(struct sockaddr_in));
 
 	main_addr.sin_family = AF_INET;
-	main_addr.sin_port = htons(66666);
+	main_addr.sin_port = htons(44444);
 	main_addr.sin_addr.s_addr = inet_addr("192.168.100.33");
 
 	sk = socket(AF_INET, SOCK_STREAM, 0);
