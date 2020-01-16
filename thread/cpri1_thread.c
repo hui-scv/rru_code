@@ -21,7 +21,6 @@
 
 int cpri1_creatsk(int type);
 int cpri1_handle(char *msg, int acq);
-short spot_id_cpri1(unsigned short type);
 int cpri1tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr);
 int cpri1_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr);
 
@@ -33,16 +32,19 @@ void *cpri1_thread(void)
 {
 	unsigned short head, ie_id, ie_size;
 	char *msg;
-	int sk, ret, rec_num = 0;
+	int sk, ret = 0, rec_num = 0, num = 0;
 
 	RRU_HEAD cpri1_que;
 	BBU_HEAD cpri1_ans;
+	MSG_HEAD msg_head;
 	struct sockaddr_in cpri1_addr;
 
 	memset(&cpri1_addr, 0, sizeof(struct sockaddr_in));
 	memset(&cpri1_que, 0, sizeof(RRU_HEAD));
 	memset(&cpri1_ans, 0, sizeof(BBU_HEAD));
+	memset(&msg_head, 0, sizeof(MSG_HEAD));
 	msg = (char *)malloc(sizeof(char) * 512);
+	memset(msg, 0, sizeof(char) * 512);
 
 	cpri1_addr.sin_family = AF_INET;
 	cpri1_addr.sin_port = htons(SERVER_PORT);
@@ -53,72 +55,83 @@ void *cpri1_thread(void)
 	*****************/
 	
 	//RRU向BBU发起接入请求，获取IP地址并设置
-	ret = cpri1tobbu_req(&cpri1_que, &cpri1_ans, &cpri1_addr);
+	cpri1tobbu_req(&cpri1_que, &cpri1_ans, &cpri1_addr);
 
 	//RRU向BBU发起TCP链接请求并完成链接
 	sk = cpri1_tcpcon(cpri1_ans, &cpri1_addr);
+
+	//RRU向BBU发起通信通道建立请求,完成RRU通信通道的配置以及返回配置响应
+	cpri1_comch_ans(sk, msg, &msg_head, cpri1_ans);
+
+	/*****************
+	时延测量
+	*****************/
 
 	while(1)
 	{
 		memset(msg, 0, sizeof(char) * 512);
 		
-		memcpy(msg, "huizhongli", 10);
-		send(sk, "huizhongli", 10, 0);
-		sleep(1);
+		while((rec_num += recv(sk, msg, 512, 0)) < 8);
+
+		if(rec_num >= ((MSG_HEAD *)msg)->msg_size)
+		{
+			cpri1_handle(msg, sk);
+		}
 	}
 }
 
 int cpri1_handle(char *msg, int acq)
 {
-	unsigned short ie_id, ie_size;
-	short type;
+	unsigned int msg_id, msg_size;
 	int ret;
 
-	ie_id = *(unsigned short *)(msg);
-	ie_size = *(unsigned short *)(msg + 2);
-	//ie_id = ntohs(ie_id);
-	//ie_size = ntohs(ie_size);
-
-	type = spot_id_cpri1(ie_id);
+	msg_id = *(unsigned int *)(msg);
+	msg_size = *(unsigned int *)(msg + 4);
 	
-	printf("ie_id : %d; ie_size : %d\n", ie_id, ie_size);
+	printf("msg_id : %d; msg_size : %d\n", msg_id, msg_size);
 
-	switch(type)
+	switch(msg_id)
 	{
-		case CPRI_INF_TYPE:
-			ret = cpri1_inftype_handle(msg, ie_id, acq);
+		case CPRI_CHLINK_CFG:
+			ret = cpri1_comch_cfg(acq, msg);
 			break;
-		case CPRI_STA_TYPE:
-			ret = cpri1_statype_handle(msg, ie_id, acq);
+		case CPRI_VERDOWN_QUE:
+			ret = cpri1_verdown_que(acq, msg);
 			break;
-		case CPRI_ALA_TYPE:
-			ret = cpri1_alatype_handle(msg, ie_id, acq);
+		case CPRI_VERACT_IND:
+			ret = cpri1_veract_ind(acq, msg);
 			break;
-		case CPRI_TES_TYPE:
-			ret = cpri1_testype_handle(msg, ie_id, acq);
+		case CPRI_STATE_QUE:
+			ret = cpri1_state_que(acq, msg);
+			break;
+		case CPRI_PARA_QUE:
+			ret = cpri1_para_que(acq, msg);
+			break;
+		case CPRI_PARACFG_QUE:
+			ret = cpri1_paracfg_que(acq, msg);
+			break;
+		case CPRI_DELAYMSE_QUE:
+			ret = cpri1_delaymse_que(acq, msg);
+			break;
+		case CPRI_ALA_QUE:
+			ret = cpri1_ala_que(acq, msg);
+			break;
+		case CPRI_LOGUP_QUE:
+			ret = cpri1_logup_que(acq, msg);
+			break;
+		case CPRI_RESET_IND:
+			ret = cpri1_reset_ind(acq, msg);
+			break;
+		case CPRI_BBUBEAT_MSG:
+			ret = cpri1_bbubeat_msg(acq, msg);
+			break;
+		case CPRI_LTE_CFG:
+			ret = cpri1_lte_cfg(acq, msg);
 			break;
 		default:
-			printf("ie_id error!\n");
+			printf("msg_id error!\n");
 			return -2;
 	}
-
-	return ret;
-}
-
-short spot_id_cpri1(unsigned short type)
-{
-	short ret;
-
-	if(0 < type && type <= 13)
-		ret = CPRI_INF_TYPE;
-	else if(302 <= type && type <= 458)
-		ret = CPRI_STA_TYPE;
-	else if(1001 <= type && type <= 1101)
-		ret = CPRI_ALA_TYPE;
-	else if(11000 <= type && type <= 11009)
-		ret = CPRI_TES_TYPE;
-	else
-		ret = -1;
 
 	return ret;
 }
@@ -155,6 +168,8 @@ int cpri1_creatsk(int type)
 		{
 			printf("cpri1 bind error!\n");
 			close(sk);
+			sk = -1;
+			sleep(3);
 			continue;
 		}
 		printf("cpri1 bind success!\n");
@@ -222,7 +237,7 @@ int cpri1tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *c
 int cpri1_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr)
 {
 	char bbu_ip[20];
-	int sk;
+	int sk, ret;
 
 	sprintf(bbu_ip, "%d.%d.%d.%d", cpri_ans.bbu_ip[0], cpri_ans.bbu_ip[1], cpri_ans.bbu_ip[2], cpri_ans.bbu_ip[3]);
 	(cpri_addr->sin_addr).s_addr = inet_addr(bbu_ip);
@@ -231,15 +246,14 @@ int cpri1_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr)
 
 	do
 	{
-		if(connect(sk, (struct sockaddr*)cpri_addr, sizeof(struct sockaddr)) == -1)
+		if((ret = connect(sk, (struct sockaddr*)cpri_addr, sizeof(struct sockaddr))) == -1)
 		{
-			close(sk);
-			sk = -1;
+			printf("cpri1 connect error!\n");
 		}
 		sleep(3);
-	}while(sk == -1);
+	}while(ret == -1);
 
+	printf("cpri1 connect success!\n");
 	return sk;
 }
-
 

@@ -65,7 +65,7 @@ extern VA_RRUVERACTANS rruveractans;
 
 extern SQ_RFCHSTA rfchsta;
 
-extern SQ_RFCHANS rfchans;
+extern SQ_RFCHANS rfchans[8];
 
 extern SQ_CIRSTA cirsta;
 

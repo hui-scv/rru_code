@@ -4,6 +4,7 @@
 #include "../msg_head.h"
 
 
+
 typedef struct cl_proid			//RRU产品标识IE
 {
 	unsigned short ie_id;		//IE标志

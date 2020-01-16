@@ -154,10 +154,12 @@ SQ_RFCHSTA rfchsta =
 	.ie_size = 5,
 };
 
-SQ_RFCHANS rfchans =
-{
+SQ_RFCHANS rfchans[] =
+{[0 ... 7] = 
+	{
 	.ie_id = 352,
 	.ie_size = 13,
+	}
 };
 
 SQ_CIRSTA cirsta =

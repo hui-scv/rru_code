@@ -2,11 +2,6 @@
 #define rru_thread___h
 
 
-#define CPRI_INF_TYPE 1
-#define CPRI_STA_TYPE 2
-#define CPRI_ALA_TYPE 3
-#define CPRI_TES_TYPE 4
-
 void *cpri1_thread(void);
 void *cpri2_thread(void);
 void *cpri3_thread(void);
