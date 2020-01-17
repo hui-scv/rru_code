@@ -20,7 +20,7 @@
 #define ETH "eth0"
 
 int cpri1_creatsk(int type);
-int cpri1_handle(char *msg, int acq);
+int cpri1_handle(char *msg, int acq, int *num);
 int cpri1tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr);
 int cpri1_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr);
 
@@ -39,17 +39,21 @@ void *cpri1_thread(void)
 	MSG_HEAD msg_head;
 	struct sockaddr_in cpri1_addr;
 
+	fd_set rdfds;
+	struct timeval tv;
+
+	msg = (char *)malloc(sizeof(char) * 512);
 	memset(&cpri1_addr, 0, sizeof(struct sockaddr_in));
 	memset(&cpri1_que, 0, sizeof(RRU_HEAD));
 	memset(&cpri1_ans, 0, sizeof(BBU_HEAD));
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
-	msg = (char *)malloc(sizeof(char) * 512);
 	memset(msg, 0, sizeof(char) * 512);
 
 	cpri1_addr.sin_family = AF_INET;
 	cpri1_addr.sin_port = htons(SERVER_PORT);
 
 
+CHLINK:
 	/*****************
 	等待F态
 	*****************/
@@ -61,26 +65,47 @@ void *cpri1_thread(void)
 	sk = cpri1_tcpcon(cpri1_ans, &cpri1_addr);
 
 	//RRU向BBU发起通信通道建立请求,完成RRU通信通道的配置以及返回配置响应
-	cpri1_comch_ans(sk, msg, &msg_head, cpri1_ans);
+	cpri1_comch_init(sk, msg, &msg_head, cpri1_ans);
 
 	/*****************
-	时延测量
+	时延测量由BBU发起
 	*****************/
+	memset(msg, 0, sizeof(char) * 512);
 
 	while(1)
 	{
-		memset(msg, 0, sizeof(char) * 512);
-		
-		while((rec_num += recv(sk, msg, 512, 0)) < 8);
-
-		if(rec_num >= ((MSG_HEAD *)msg)->msg_size)
+		FD_ZERO(&rdfds);
+		FD_SET(sk, &rdfds);
+		tv.tv_sec = 3;
+		tv.tv_usec = 0;
+		ret = select(sk + 1, &rdfds, NULL, NULL, &tv);
+		if(ret < 0)
+			printf("select erro!\n");
+		else if(ret == 0)
 		{
-			cpri1_handle(msg, sk);
+			rec_num = 0;
+			memset(msg, 0, sizeof(char) * 512);
+ 		}else if(FD_ISSET(sk, &rdfds))
+			rec_num += recv(sk, msg + rec_num, 512, 0);
+
+		num++;
+		if(rec_num >= ((MSG_HEAD *)msg)->msg_size && ((MSG_HEAD *)msg)->msg_size != 0)
+		{
+			cpri1_handle(msg, sk, &num);
+			rec_num = 0;
+			memset(msg, 0, sizeof(char) * 512);
+		}
+
+		if(num == 3)
+		{
+			num = 0;
+			close(sk);
+			goto CHLINK;
 		}
 	}
 }
 
-int cpri1_handle(char *msg, int acq)
+int cpri1_handle(char *msg, int acq, int *num)
 {
 	unsigned int msg_id, msg_size;
 	int ret;
@@ -110,7 +135,7 @@ int cpri1_handle(char *msg, int acq)
 		case CPRI_PARACFG_QUE:
 			ret = cpri1_paracfg_que(acq, msg);
 			break;
-		case CPRI_DELAYMSE_QUE:
+		case CPRI_DELAYMSE_QUE | CPRI_DELAYCFG_CMD:
 			ret = cpri1_delaymse_que(acq, msg);
 			break;
 		case CPRI_ALA_QUE:
@@ -123,7 +148,7 @@ int cpri1_handle(char *msg, int acq)
 			ret = cpri1_reset_ind(acq, msg);
 			break;
 		case CPRI_BBUBEAT_MSG:
-			ret = cpri1_bbubeat_msg(acq, msg);
+			ret = cpri1_bbubeat_msg(acq, msg, num);
 			break;
 		case CPRI_LTE_CFG:
 			ret = cpri1_lte_cfg(acq, msg);

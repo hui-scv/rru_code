@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "include/struct.h"
 #include "include/init.h"
 
 void driver_init(void)
@@ -23,6 +24,8 @@ void rf_init(void)
 
 void init(void)
 {
+	//pthread_rwlock_init(&chlinkque_rwlock, NULL);
+
 	driver_init();
 	ad_da_init();
 	time_init();

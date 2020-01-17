@@ -14,7 +14,7 @@ int cpri1_comch_req(int sk, BBU_HEAD cpri_ans)
 	int count = 0, ret = 0;
 	MSG_HEAD msg_head;
 
-	msg_head.msg_id = 1;
+	msg_head.msg_id = CPRI_CHLINK_QUE;
 	msg_head.msg_size = 354;
 	msg_head.bbu_id = cpri_ans.bbu_id;
 	msg_head.rru_id = cpri_ans.rru_id;
@@ -23,23 +23,23 @@ int cpri1_comch_req(int sk, BBU_HEAD cpri_ans)
 
 	memcpy(send_msg + count, &msg_head, sizeof(MSG_HEAD));
 	count += sizeof(MSG_HEAD);
-	memcpy(send_msg + count, &porid, sizeof(CL_PROID));
+	memcpy(send_msg + count, &porid[0], sizeof(CL_PROID));
 	count += sizeof(CL_PROID);
-	memcpy(send_msg + count, &linktype, sizeof(CL_LINKTYPE));
+	memcpy(send_msg + count, &linktype[0], sizeof(CL_LINKTYPE));
 	count += sizeof(CL_LINKTYPE);
-	memcpy(send_msg + count, &rrucapa, sizeof(CL_RRUCAPA));
+	memcpy(send_msg + count, &rrucapa[0], sizeof(CL_RRUCAPA));
 	count += sizeof(CL_RRUCAPA);
-	memcpy(send_msg + count, &rrulv, sizeof(CL_RRULV));
+	memcpy(send_msg + count, &rrulv[0], sizeof(CL_RRULV));
 	count += sizeof(CL_RRULV);
-	memcpy(send_msg + count, &rruinfo, sizeof(CL_RRUINFO));
+	memcpy(send_msg + count, &rruinfo[0], sizeof(CL_RRUINFO));
 	count += sizeof(CL_RRUINFO);
-	memcpy(send_msg + count, &rrusoftinfo, sizeof(CL_RRUSOFTINFO));
+	memcpy(send_msg + count, &rrusoftinfo[0], sizeof(CL_RRUSOFTINFO));
 	count += sizeof(CL_RRUSOFTINFO);
-	memcpy(send_msg + count, &rrufre, sizeof(CL_RRUFRE));
+	memcpy(send_msg + count, &rrufre[0], sizeof(CL_RRUFRE));
 	count += sizeof(CL_RRUFRE);
-	memcpy(send_msg + count, &rrurf, sizeof(CL_RRURF));
+	memcpy(send_msg + count, &rrurf[0], sizeof(CL_RRURF));
 	count += sizeof(CL_RRURF);
-	memcpy(send_msg + count, &rrucir, sizeof(CL_RRUCIR));
+	memcpy(send_msg + count, &rrucir[0], sizeof(CL_RRUCIR));
 	count += sizeof(CL_RRUCIR);
 	
 	ret = send(sk, send_msg, count, 0);
@@ -59,6 +59,7 @@ int cpri1_comch_cfg(int sk, char *msg)
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
 	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
+	memcpy((char *)&msg_head, msg, MSG_HEADSIZE);
 
 	for(i = 0; i < 6; i++)
 	{
@@ -72,43 +73,42 @@ int cpri1_comch_cfg(int sk, char *msg)
 		switch(ie_id)
 		{
 			case 11:
-				memcpy((char *)(&systime) + 4, (char *)src_addr, sizeof(CL_SYSTIME) - 4);
+				memcpy((char *)(&systime[0]) + 4, (char *)src_addr, sizeof(CL_SYSTIME) - 4);
 				break;
 			case 12:
-				memcpy((char *)(&linkaddr) + 4, (char *)src_addr, sizeof(CL_LINKADDR) - 4);
+				memcpy((char *)(&linkaddr[0]) + 4, (char *)src_addr, sizeof(CL_LINKADDR) - 4);
 				break;
 			case 13:
-				memcpy((char *)(&rrumode) + 4, (char *)src_addr, sizeof(CL_RRUMODE) - 4);
+				memcpy((char *)(&rrumode[0]) + 4, (char *)src_addr, sizeof(CL_RRUMODE) - 4);
 				break;
 			case 14:
-				memcpy((char *)(&softchk) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
+				memcpy((char *)(&softchk[0]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
 				break;
 			case 504:
-				memcpy((char *)(&irmodecfg) + 4, (char *)src_addr, sizeof(CL_IRMODECFG) - 
+				memcpy((char *)(&irmodecfg[0]) + 4, (char *)src_addr, sizeof(CL_IRMODECFG) - 
 4);
 				msg_head.msg_id = CPRI_CHLINK_ANS;
-				msg_head.msg_size = MSG_HEADSIZE + irmodecfgans.ie_size;
-				memcpy((char *)&msg_head + 8, msg, MSG_HEADSIZE - 8);
+				msg_head.msg_size = MSG_HEADSIZE + irmodecfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&irmodecfgans), sizeof(CL_IRMODECFGANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&irmodecfgans[0]), sizeof(CL_IRMODECFGANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 505:
-				memcpy((char *)(&ftpinfo) + 4, (char *)src_addr, sizeof(CL_FTPINFO) - 4);
+				memcpy((char *)(&ftpinfo[0]) + 4, (char *)src_addr, sizeof(CL_FTPINFO) - 4);
 				break;
 			default:
 				ret += -1;
-				//return ret;
+				return ret;
 		}
 
 		if(size == count)
 			return 0;
 	}
 	
-	return ret;
+	return -1;
 }
 
-void cpri1_comch_ans(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
+void cpri1_comch_init(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
 {
 	char send_msg[512];
 	int ret = 0, rec_num = 0;
@@ -151,9 +151,9 @@ void cpri1_comch_ans(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
 				if(ret >= 0)
 				{
 					msg_head->msg_id = CPRI_CHLINK_ANS;
-					msg_head->msg_size = MSG_HEADSIZE + chlinkans.ie_size;
+					msg_head->msg_size = MSG_HEADSIZE + chlinkans[0].ie_size;
 					memcpy(send_msg, (char *)msg_head, MSG_HEADSIZE);
-					memcpy(send_msg + MSG_HEADSIZE, (char *)(&chlinkans), sizeof(CL_CHLINKANS));
+					memcpy(send_msg + MSG_HEADSIZE, (char *)(&chlinkans[0]), sizeof(CL_CHLINKANS));
 					printf("ret1 : %d\n", ret);
 					ret = send(sk, send_msg, msg_head->msg_size, 0);
 					printf("ret2 : %d\n", ret);
@@ -170,9 +170,9 @@ void cpri1_comch_ans(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
 				memset(msg, 0, sizeof(char) * 512);
 			}
 			msg_head->msg_id = CPRI_CHLINK_ANS;
-			msg_head->msg_size = MSG_HEADSIZE + chlinkans.ie_size;
+			msg_head->msg_size = MSG_HEADSIZE + chlinkans[0].ie_size;
 			memcpy(send_msg, (char *)msg_head, MSG_HEADSIZE);
-			memcpy(send_msg + MSG_HEADSIZE, (char *)(&chlinkans), sizeof(CL_CHLINKANS));
+			memcpy(send_msg + MSG_HEADSIZE, (char *)(&chlinkans[0]), sizeof(CL_CHLINKANS));
 			send(sk, send_msg, msg_head->msg_size, 0);
 			
 			cpri1_comch_req(sk, cpri_ans);
@@ -186,50 +186,53 @@ int cpri1_verdown_que(int sk, char *msg)
 {
 	char *src_addr, send_msg[512];
 	unsigned short ie_id;
-	int size = 0, ret = 0, count;
+	int size = 0, ret = 0, count = 0;
 	MSG_HEAD msg_head;
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
-	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
+	
+	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
+	size = *(unsigned short *)(msg + 2 + MSG_HEADSIZE);
+	ie_id = *(unsigned short *)(msg + MSG_HEADSIZE);
+	src_addr = msg + 4 + MSG_HEADSIZE;
 
-	do
+	if(ie_id == 14 && count == size)
 	{
-		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
-		src_addr = msg + size + 4 + MSG_HEADSIZE;
-		size += *(unsigned short *)(msg + size + 2 + MSG_HEADSIZE);
-
-		switch(ie_id)
+		memcpy((char *)(&softchk[0]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
+		if(softchk[0].res == 0)
 		{
-			case 14:
-				memcpy((char *)(&softchk) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
-				if(softchk.res == 0)
-				{
-					verdownans.soft_type = softchk.soft_type;
-					verdownans.res = 1;
-					msg_head.msg_id = CPRI_VERDOWN_ANS;
-					msg_head.msg_size = MSG_HEADSIZE + verdownans.ie_size;
-					memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-					memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownans), sizeof(VD_VERDOWNANS));
-					send(sk, send_msg, msg_head.msg_size, 0);
-				}else
-				{
-					verdownans.soft_type = softchk.soft_type;
-					verdownans.res = 0;
-					msg_head.msg_id = CPRI_VERDOWN_ANS;
-					msg_head.msg_size = MSG_HEADSIZE + verdownans.ie_size;
-					memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-					memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownans), sizeof(VD_VERDOWNANS));
-					send(sk, send_msg, msg_head.msg_size, 0);
-					/*******************************
-					进行ftp下载并发送下载响应
-					*******************************/
-				}
-				break;
-			default:
-				ret += -1;
+			verdownans[0].soft_type = softchk[0].soft_type;
+			verdownans[0].res = 1;
+			msg_head.msg_id = CPRI_VERDOWN_ANS;
+			msg_head.msg_size = MSG_HEADSIZE + verdownans[0].ie_size;
+			memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+			memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownans[0]), sizeof(VD_VERDOWNANS));
+			send(sk, send_msg, msg_head.msg_size, 0);
+			ret = 0;
+		}else
+		{
+			verdownans[0].soft_type = softchk[0].soft_type;
+			verdownans[0].res = 0;
+			msg_head.msg_id = CPRI_VERDOWN_ANS;
+			msg_head.msg_size = MSG_HEADSIZE + verdownans[0].ie_size;
+			memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+			memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownans[0]), sizeof(VD_VERDOWNANS));
+			send(sk, send_msg, msg_head.msg_size, 0);
+			/*******************************
+			进行ftp下载
+			*******************************/
+			verdownres[0].soft_type = softchk[0].soft_type;
+			verdownres[0].res = 0;
+			msg_head.msg_id = CPRI_VERDOWN_IND;
+			msg_head.msg_size = MSG_HEADSIZE + verdownres[0].ie_size;
+			memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+			memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownres[0]), sizeof(VD_VERDOWNRES));
+			send(sk, send_msg, msg_head.msg_size, 0);
+			ret = 1;
 		}
-	}while(size != count);
+	}else
+		ret = -1;
 	
 	return ret;
 }
@@ -244,32 +247,27 @@ int cpri1_veract_ind(int sk, char *msg)
 	MSG_HEAD msg_head;
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
-	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
+	
+	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
+	size = *(unsigned short *)(msg + 2 + MSG_HEADSIZE);
+	ie_id = *(unsigned short *)(msg + MSG_HEADSIZE);
+	src_addr = msg + 4 + MSG_HEADSIZE;
 
-	do
+	if(ie_id == 6 && count == size)
 	{
-		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
-		src_addr = msg + size + 4 + MSG_HEADSIZE;
-		size += *(unsigned short *)(msg + size + 2 + MSG_HEADSIZE);
-
-		switch(ie_id)
-		{
-			case 6:
-				memcpy((char *)(&rrusoftinfo) + 4, (char *)src_addr, sizeof(CL_RRUSOFTINFO) - 4);
-				/***********************************
-				进行激活操作
-				***********************************/
-				msg_head.msg_id = CPRI_VERACT_ANS;
-				msg_head.msg_size = MSG_HEADSIZE + rruveractans.ie_size;
-				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rruveractans), sizeof(VA_RRUVERACTANS));
-				send(sk, send_msg, msg_head.msg_size, 0);
-				break;
-			default:
-				ret += -1;
-		}
-	}while(size != count);
+		memcpy((char *)(&rrusoftinfo[0]) + 4, (char *)src_addr, sizeof(CL_RRUSOFTINFO) - 4);
+		/***********************************
+		进行激活操作
+		***********************************/
+		msg_head.msg_id = CPRI_VERACT_ANS;
+		msg_head.msg_size = MSG_HEADSIZE + rruveractans[0].ie_size;
+		memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+		memcpy(send_msg + MSG_HEADSIZE, (char *)(&rruveractans[0]), sizeof(VA_RRUVERACTANS));
+		send(sk, send_msg, msg_head.msg_size, 0);
+		ret = 0;
+	}else
+		ret = -1;
 	
 	return ret;
 }
@@ -279,7 +277,7 @@ int cpri1_veract_ind(int sk, char *msg)
 int cpri1_state_que(int sk, char *msg)
 {
 	char *src_addr, send_msg[512];
-	unsigned short ie_id, ch;
+	unsigned short ie_id, ch, i;
 	int size = 0, ret = 0, count;
 	MSG_HEAD msg_head;
 
@@ -288,7 +286,7 @@ int cpri1_state_que(int sk, char *msg)
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
 	msg_head.msg_id = CPRI_STATE_ANS;
 
-	do
+	for(i = 0; i < 8; i++)
 	{
 		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
 		src_addr = msg + size + 4 + MSG_HEADSIZE;
@@ -297,60 +295,64 @@ int cpri1_state_que(int sk, char *msg)
 		switch(ie_id)
 		{
 			case 302:		//射频通道状态查询
-				ch = ((SQ_RFCHSTA *)msg)->ch_num;
-				msg_head.msg_size = MSG_HEADSIZE + rfchans[ch].ie_size;
+				//ch = ((SQ_RFCHSTA *)(msg + MSG_HEADSIZE))->ch_num;
+				msg_head.msg_size = MSG_HEADSIZE + rfchans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rfchans[ch]), sizeof(SQ_RFCHANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rfchans[0]), sizeof(SQ_RFCHANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 303:
-				msg_head.msg_size = MSG_HEADSIZE + cirans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + cirans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&cirans), sizeof(SQ_CIRANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&cirans[0]), sizeof(SQ_CIRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 304:
-				msg_head.msg_size = MSG_HEADSIZE + oscans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + oscans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&oscans), sizeof(SQ_OSCANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&oscans[0]), sizeof(SQ_OSCANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 305:
-				msg_head.msg_size = MSG_HEADSIZE + rtcans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + rtcans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rtcans), sizeof(SQ_RTCANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rtcans[0]), sizeof(SQ_RTCANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 306:
-				msg_head.msg_size = MSG_HEADSIZE + runans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + runans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&runans), sizeof(SQ_RUNANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&runans[0]), sizeof(SQ_RUNANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 307:
-				msg_head.msg_size = MSG_HEADSIZE + irmodeans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + irmodeans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&irmodeans), sizeof(SQ_IRMODEANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&irmodeans[0]), sizeof(SQ_IRMODEANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 308:
-				msg_head.msg_size = MSG_HEADSIZE + initchkans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + initchkans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&initchkans), sizeof(SQ_INITCHKANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&initchkans[0]), sizeof(SQ_INITCHKANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 309:
-				msg_head.msg_size = MSG_HEADSIZE + rayans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + rayans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rayans), sizeof(SQ_RAYANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rayans[0]), sizeof(SQ_RAYANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			default:
 				ret += -1;
+				return ret;
 		}
-	}while(size != count);
+		
+		if(size == count)
+			return 0;
+	}
 	
-	return ret;
+	return -1;
 }
 
 
@@ -358,7 +360,7 @@ int cpri1_state_que(int sk, char *msg)
 int cpri1_para_que(int sk, char *msg)
 {
 	char *src_addr, send_msg[512];
-	unsigned short ie_id;
+	unsigned short ie_id, i;
 	int size = 0, ret = 0, count;
 	MSG_HEAD msg_head;
 
@@ -367,7 +369,7 @@ int cpri1_para_que(int sk, char *msg)
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
 	msg_head.msg_id = CPRI_PARA_ANS;
 
-	do
+	for(i = 0; i < 9; i++)
 	{
 		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
 		src_addr = msg + size + 4 + MSG_HEADSIZE;
@@ -376,65 +378,70 @@ int cpri1_para_que(int sk, char *msg)
 		switch(ie_id)
 		{
 			case 401:
-				msg_head.msg_size = MSG_HEADSIZE + systime.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + systime[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&systime), sizeof(CL_SYSTIME));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&systime[0]), sizeof(CL_SYSTIME));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 402:
-				msg_head.msg_size = MSG_HEADSIZE + cpurateans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + cpurateans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&cpurateans), sizeof(PQ_CPURATEANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&cpurateans[0]), sizeof(PQ_CPURATEANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 403:
-				msg_head.msg_size = MSG_HEADSIZE + ratecycans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + ratecycans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&ratecycans), sizeof(PQ_RATECYCANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&ratecycans[0]), sizeof(PQ_RATECYCANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 404:
-				msg_head.msg_size = MSG_HEADSIZE + rrutemans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + rrutemans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rrutemans), sizeof(PQ_RRUTEMANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rrutemans[0]), sizeof(PQ_RRUTEMANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 405:
-				msg_head.msg_size = MSG_HEADSIZE + swrstaans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + swrstaans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&swrstaans), sizeof(PQ_SWRSTAANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&swrstaans[0]), sizeof(PQ_SWRSTAANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 406:
-				msg_head.msg_size = MSG_HEADSIZE + swrthrans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + swrthrans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&swrthrans), sizeof(PQ_SWRTHRANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&swrthrans[0]), sizeof(PQ_SWRTHRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 407:
-				msg_head.msg_size = MSG_HEADSIZE + temthrans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + temthrans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&temthrans), sizeof(PQ_TEMTHRANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&temthrans[0]), sizeof(PQ_TEMTHRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 408:
-				msg_head.msg_size = MSG_HEADSIZE + outpowerans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + outpowerans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&outpowerans), sizeof(PQ_OUTPOWERANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&outpowerans[0]), sizeof(PQ_OUTPOWERANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 409:
-				msg_head.msg_size = MSG_HEADSIZE + stamachans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + stamachans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&stamachans), sizeof(PQ_STAMACHANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&stamachans[0]), sizeof(PQ_STAMACHANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			default:
 				ret += -1;
+				return ret;
 		}
-	}while(size != count);
+		
+		if(size == count)
+			return 0;
+
+	}
 	
-	return ret;
+	return -1;
 }
 
 
@@ -442,7 +449,7 @@ int cpri1_para_que(int sk, char *msg)
 int cpri1_paracfg_que(int sk, char *msg)
 {
 	char *src_addr, send_msg[512];
-	unsigned short ie_id;
+	unsigned short ie_id, i;
 	int size = 0, ret = 0, count;
 	MSG_HEAD msg_head;
 
@@ -451,7 +458,7 @@ int cpri1_paracfg_que(int sk, char *msg)
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
 	msg_head.msg_id = CPRI_PARACFG_ANS;
 
-	do
+	for(i = 0; i < 8; i++)
 	{
 		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
 		src_addr = msg + size + 4 + MSG_HEADSIZE;
@@ -463,80 +470,84 @@ int cpri1_paracfg_que(int sk, char *msg)
 				/************************************
 				系统时间配置
 				************************************/
-				msg_head.msg_size = MSG_HEADSIZE + systimecfgans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + systimecfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&systimecfgans), sizeof(PC_SYSTIMEANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&systimecfgans[0]), sizeof(PC_SYSTIMEANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 501:
 				/************************************
 				IQ数据通道配置
 				************************************/
-				msg_head.msg_size = MSG_HEADSIZE + iqdatachcfgans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + iqdatachcfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&iqdatachcfgans), sizeof(PC_IQDATACHANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&iqdatachcfgans[0]), sizeof(PC_IQDATACHANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 502:
 				/************************************
 				CPU占用率统计周期配置
 				************************************/
-				msg_head.msg_size = MSG_HEADSIZE + ratecyccfgans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + ratecyccfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&ratecyccfgans), sizeof(PC_RATECYCANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&ratecyccfgans[0]), sizeof(PC_RATECYCANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 503:
 				/************************************
 				驻波比门限配置
 				************************************/
-				msg_head.msg_size = MSG_HEADSIZE + swrthrcfgans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + swrthrcfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&swrthrcfgans), sizeof(PC_SWRTHRANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&swrthrcfgans[0]), sizeof(PC_SWRTHRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 504:
 				/************************************
 				驻波比门限配置
 				************************************/
-				msg_head.msg_size = MSG_HEADSIZE + irmodecfgans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + irmodecfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&irmodecfgans), sizeof(PC_IRMODEANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&irmodecfgans[0]), sizeof(PC_IRMODEANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 505:
 				/************************************
 				过温门限配置
 				************************************/
-				msg_head.msg_size = MSG_HEADSIZE + temthrcfgans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + temthrcfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&temthrcfgans), sizeof(PC_TEMTHRANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&temthrcfgans[0]), sizeof(PC_TEMTHRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 302:
 				/************************************
 				射频通道状态配置
 				************************************/
-				msg_head.msg_size = MSG_HEADSIZE + rfchstacfgans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + rfchstacfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rfchstacfgans), sizeof(PC_RFCHSTAANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rfchstacfgans[0]), sizeof(PC_RFCHSTAANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 507:
 				/************************************
 				天线配置
 				************************************/
-				msg_head.msg_size = MSG_HEADSIZE + antcfgans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + antcfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&antcfgans), sizeof(PC_ANTCFGANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&antcfgans[0]), sizeof(PC_ANTCFGANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			default:
 				ret += -1;
+				return ret;
 		}
-	}while(size != count);
+
+		if(size == count)
+			return 0;
+	}
 	
-	return ret;
+	return -1;
 }
 
 
@@ -544,7 +555,7 @@ int cpri1_paracfg_que(int sk, char *msg)
 int cpri1_delaymse_que(int sk, char *msg)
 {
 	char *src_addr, send_msg[512];
-	unsigned short ie_id;
+	unsigned short ie_id, i;
 	int size = 0, ret = 0, count;
 	MSG_HEAD msg_head;
 
@@ -552,7 +563,7 @@ int cpri1_delaymse_que(int sk, char *msg)
 	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
 
-	do
+	for(i = 0; i < 2; i++)
 	{
 		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
 		src_addr = msg + size + 4 + MSG_HEADSIZE;
@@ -565,9 +576,9 @@ int cpri1_delaymse_que(int sk, char *msg)
 				时延测量
 				************************************/
 				msg_head.msg_id = CPRI_DELAYMSE_ANS;
-				msg_head.msg_size = MSG_HEADSIZE + raydelayans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + raydelayans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&raydelayans), sizeof(DM_RAYDELAYANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&raydelayans[0]), sizeof(DM_RAYDELAYANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 921:
@@ -575,17 +586,21 @@ int cpri1_delaymse_que(int sk, char *msg)
 				时延配置
 				************************************/
 				msg_head.msg_id = CPRI_DELAYCFG_ANS;
-				msg_head.msg_size = MSG_HEADSIZE + delaycfgans.ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + delaycfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&delaycfgans), sizeof(DM_DELAYCFGANS));
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&delaycfgans[0]), sizeof(DM_DELAYCFGANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			default:
 				ret += -1;
+				return ret;
 		}
-	}while(size != count);
+
+		if(size == count)
+			return 0;
+	}
 	
-	return ret;
+	return -1;
 }
 
 
@@ -598,31 +613,27 @@ int cpri1_ala_que(int sk, char *msg)
 	MSG_HEAD msg_head;
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
-	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
+	
+	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
+	size = *(unsigned short *)(msg + 2 + MSG_HEADSIZE);
+	ie_id = *(unsigned short *)(msg + MSG_HEADSIZE);
+	src_addr = msg + 4 + MSG_HEADSIZE;
 
-	do
+	if(ie_id == 1101 && count == size)
 	{
-		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
-		src_addr = msg + size + 4 + MSG_HEADSIZE;
-		size += *(unsigned short *)(msg + size + 2 + MSG_HEADSIZE);
+		/************************************
+		报警查询
+		************************************/
+		msg_head.msg_id = CPRI_ALA_ANS;
+		msg_head.msg_size = MSG_HEADSIZE + alarep[0].ie_size;
+		memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+		memcpy(send_msg + MSG_HEADSIZE, (char *)(&alarep[0]), sizeof(AR_ALAREP));
+		send(sk, send_msg, msg_head.msg_size, 0);
 
-		switch(ie_id)
-		{
-			case 1101:
-				/************************************
-				报警查询
-				************************************/
-				msg_head.msg_id = CPRI_ALA_ANS;
-				msg_head.msg_size = MSG_HEADSIZE + alarep.ie_size;
-				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&alarep), sizeof(AR_ALAREP));
-				send(sk, send_msg, msg_head.msg_size, 0);
-				break;
-			default:
-				ret += -1;
-		}
-	}while(size != count);
+		ret = 0;
+	}else
+		ret = -1;
 	
 	return ret;
 }
@@ -637,42 +648,38 @@ int cpri1_logup_que(int sk, char *msg)
 	MSG_HEAD msg_head;
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
-	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
+	
+	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
+	size = *(unsigned short *)(msg + 2 + MSG_HEADSIZE);
+	ie_id = *(unsigned short *)(msg + MSG_HEADSIZE);
+	src_addr = msg + 4 + MSG_HEADSIZE;
 
-	do
+	if(ie_id == 1201 && count == size)
 	{
-		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
-		src_addr = msg + size + 4 + MSG_HEADSIZE;
-		size += *(unsigned short *)(msg + size + 2 + MSG_HEADSIZE);
-
-		switch(ie_id)
+		/************************************
+		日志上传请求
+		************************************/
+		msg_head.msg_id = CPRI_LOGUP_ANS;
+		msg_head.msg_size = MSG_HEADSIZE + upans[0].ie_size;
+		memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+		memcpy(send_msg + MSG_HEADSIZE, (char *)(&upans[0]), sizeof(LOG_UPANS));
+		send(sk, send_msg, msg_head.msg_size, 0);
+		if(upans[0].res == 0)
 		{
-			case 1201:
-				/************************************
-				日志上传请求
-				************************************/
-				msg_head.msg_id = CPRI_LOGUP_ANS;
-				msg_head.msg_size = MSG_HEADSIZE + upans.ie_size;
-				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-				memcpy(send_msg + MSG_HEADSIZE, (char *)(&upans), sizeof(LOG_UPANS));
-				send(sk, send_msg, msg_head.msg_size, 0);
-				if(upans.res == 0)
-				{
-					/*******************************
-					进行ftp上传日志
-					*******************************/
-					msg_head.msg_id = CPRI_LOGUP_IND;
-					msg_head.msg_size = MSG_HEADSIZE + upres.ie_size;
-					memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-					memcpy(send_msg + MSG_HEADSIZE, (char *)(&upres), sizeof(LOG_UPRES));
-					send(sk, send_msg, msg_head.msg_size, 0);
-				}
-				break;
-			default:
-				ret += -1;
+			/*******************************
+			进行ftp上传日志
+			*******************************/
+			msg_head.msg_id = CPRI_LOGUP_IND;
+			msg_head.msg_size = MSG_HEADSIZE + upres[0].ie_size;
+			memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+			memcpy(send_msg + MSG_HEADSIZE, (char *)(&upres[0]), sizeof(LOG_UPRES));
+			send(sk, send_msg, msg_head.msg_size, 0);
 		}
-	}while(size != count);
+
+				ret = 0;
+	}else
+		ret = -1;
 	
 	return ret;
 }
@@ -687,60 +694,43 @@ int cpri1_reset_ind(int sk, char *msg)
 	MSG_HEAD msg_head;
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
-	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
+	
+	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
+	size = *(unsigned short *)(msg + 2 + MSG_HEADSIZE);
+	ie_id = *(unsigned short *)(msg + MSG_HEADSIZE);
+	src_addr = msg + 4 + MSG_HEADSIZE;
 
-	do
+	if(ie_id == 1301 && count == size)
 	{
-		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
-		src_addr = msg + size + 4 + MSG_HEADSIZE;
-		size += *(unsigned short *)(msg + size + 2 + MSG_HEADSIZE);
+		/*******************************
+		进行RRU的复位操作
+		*******************************/
 
-		switch(ie_id)
-		{
-			case 1301:
-				/*******************************
-				进行RRU的复位操作
-				*******************************/
-				break;
-			default:
-				ret += -1;
-		}
-	}while(size != count);
+		ret = 0;
+	}else
+		ret = -1;
 	
 	return ret;
 }
 
 
 /********************************************BBU心跳包消息分割线***************************************/
-int cpri1_bbubeat_msg(int sk, char *msg)
+int cpri1_bbubeat_msg(int sk, char *msg, int *num)
 {
-	char *src_addr, send_msg[512];
-	unsigned short ie_id;
-	int size = 0, ret = 0, count;
+	int ret = 0;
 	MSG_HEAD msg_head;
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
-	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
+	msg_head.msg_id = CPRI_RRUBEAT_MSG;
+	msg_head.msg_size = MSG_HEADSIZE;
 
-	do
-	{
-		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
-		src_addr = msg + size + 4 + MSG_HEADSIZE;
-		size += *(unsigned short *)(msg + size + 2 + MSG_HEADSIZE);
-
-		switch(ie_id)
-		{
-			case 0:
-				/*******************************
-				进行BBU在位监测
-				*******************************/
-				break;
-			default:
-				ret += -1;
-		}
-	}while(size != count);
+	*num = 0;
+	/*******************************
+	进行BBU在位监测
+	*******************************/
+	ret = send(sk, &msg_head, msg_head.msg_size, 0);
 	
 	return ret;
 }
@@ -750,7 +740,7 @@ int cpri1_bbubeat_msg(int sk, char *msg)
 int cpri1_lte_cfg(int sk, char *msg)
 {
 	char *src_addr, send_msg[512];
-	unsigned short ie_id;
+	unsigned short ie_id, i;
 	int size = 0, ret = 0, count;
 	MSG_HEAD msg_head;
 
@@ -758,7 +748,7 @@ int cpri1_lte_cfg(int sk, char *msg)
 	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
 
-	do
+	for(i = 0; i < 2; i++)
 	{
 		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
 		src_addr = msg + size + 4 + MSG_HEADSIZE;
@@ -778,10 +768,15 @@ int cpri1_lte_cfg(int sk, char *msg)
 				break;
 			default:
 				ret += -1;
+				return ret;
 		}
-	}while(size != count);
+
+		if(size == count)
+			return 0;
+
+	}
 	
-	return ret;
+	return -1;
 }
 
 
@@ -815,4 +810,5 @@ fd_error:
 	printf("write_str error!\n");
 	return -1;
 }
+
 
