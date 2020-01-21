@@ -26,6 +26,55 @@ void main()
 		printf("create cpri1_thread error!\n");
 		return;
 	}
+	
+	ret = pthread_create(&thread_id[2], NULL, (void *)cpri2_thread, NULL);
+	if(ret != 0)
+	{
+		printf("create cpri1_thread error!\n");
+		return;
+	}
+
+	ret = pthread_create(&thread_id[3], NULL, (void *)cpri3_thread, NULL);
+	if(ret != 0)
+	{
+		printf("create cpri1_thread error!\n");
+		return;
+	}
+
+	ret = pthread_create(&thread_id[4], NULL, (void *)cpri4_thread, NULL);
+	if(ret != 0)
+	{
+		printf("create cpri1_thread error!\n");
+		return;
+	}
+
+	ret = pthread_create(&thread_id[5], NULL, (void *)cpri5_thread, NULL);
+	if(ret != 0)
+	{
+		printf("create cpri1_thread error!\n");
+		return;
+	}
+
+	ret = pthread_create(&thread_id[6], NULL, (void *)cpri6_thread, NULL);
+	if(ret != 0)
+	{
+		printf("create cpri1_thread error!\n");
+		return;
+	}
+
+	ret = pthread_create(&thread_id[7], NULL, (void *)cpri7_thread, NULL);
+	if(ret != 0)
+	{
+		printf("create cpri1_thread error!\n");
+		return;
+	}
+
+	ret = pthread_create(&thread_id[8], NULL, (void *)cpri8_thread, NULL);
+	if(ret != 0)
+	{
+		printf("create cpri1_thread error!\n");
+		return;
+	}
 
 	ret = pthread_create(&thread_id[9], NULL, (void *)ptran_thread, NULL);
 	if(ret != 0)

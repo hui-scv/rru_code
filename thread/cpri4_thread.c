@@ -13,44 +13,44 @@
 
 #include "../include/thread/rru_thread.h"
 #include "../include/struct.h"
-#include "../include/thread/cpri1_handle.h"
+#include "../include/thread/cpri4_handle.h"
 
 
 #define SERVER_PORT 33333
-#define ETH0 "eth0"
+#define ETH3 "eth3"
 
-int cpri1_creatsk(int type);
-int cpri1_handle(char *msg, int acq, int *num);
-int cpri1tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr);
-int cpri1_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr);
+int cpri4_creatsk(int type);
+int cpri4_handle(char *msg, int acq, int *num);
+int cpri4tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr);
+int cpri4_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr);
 
 
 /***********************************************
-功能：cpri1接口线程处理函数
+功能：cpri4接口线程处理函数
 ***********************************************/
-void *cpri1_thread(void)
+void *cpri4_thread(void)
 {
 	unsigned short head, ie_id, ie_size;
 	char *msg;
 	int sk, ret = 0, rec_num = 0, num = 0;
 
-	RRU_HEAD cpri1_que;
-	BBU_HEAD cpri1_ans;
+	RRU_HEAD cpri4_que;
+	BBU_HEAD cpri4_ans;
 	MSG_HEAD msg_head;
-	struct sockaddr_in cpri1_addr;
+	struct sockaddr_in cpri4_addr;
 
 	fd_set rdfds;
 	struct timeval tv;
 
 	msg = (char *)malloc(sizeof(char) * 512);
-	memset(&cpri1_addr, 0, sizeof(struct sockaddr_in));
-	memset(&cpri1_que, 0, sizeof(RRU_HEAD));
-	memset(&cpri1_ans, 0, sizeof(BBU_HEAD));
+	memset(&cpri4_addr, 0, sizeof(struct sockaddr_in));
+	memset(&cpri4_que, 0, sizeof(RRU_HEAD));
+	memset(&cpri4_ans, 0, sizeof(BBU_HEAD));
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
 	memset(msg, 0, sizeof(char) * 512);
 
-	cpri1_addr.sin_family = AF_INET;
-	cpri1_addr.sin_port = htons(SERVER_PORT);
+	cpri4_addr.sin_family = AF_INET;
+	cpri4_addr.sin_port = htons(SERVER_PORT);
 
 
 CHLINK:
@@ -59,13 +59,13 @@ CHLINK:
 	*****************/
 	
 	//RRU向BBU发起接入请求，获取IP地址并设置
-	cpri1tobbu_req(&cpri1_que, &cpri1_ans, &cpri1_addr);
+	cpri4tobbu_req(&cpri4_que, &cpri4_ans, &cpri4_addr);
 
 	//RRU向BBU发起TCP链接请求并完成链接
-	sk = cpri1_tcpcon(cpri1_ans, &cpri1_addr);
+	sk = cpri4_tcpcon(cpri4_ans, &cpri4_addr);
 
 	//RRU向BBU发起通信通道建立请求,完成RRU通信通道的配置以及返回配置响应
-	cpri1_comch_init(sk, msg, &msg_head, cpri1_ans);
+	cpri4_comch_init(sk, msg, &msg_head, cpri4_ans);
 
 	/*****************
 	时延测量由BBU发起
@@ -91,7 +91,7 @@ CHLINK:
 		num++;
 		if(rec_num >= ((MSG_HEAD *)msg)->msg_size && ((MSG_HEAD *)msg)->msg_size != 0)
 		{
-			cpri1_handle(msg, sk, &num);
+			cpri4_handle(msg, sk, &num);
 			rec_num = 0;
 			memset(msg, 0, sizeof(char) * 512);
 		}
@@ -105,7 +105,7 @@ CHLINK:
 	}
 }
 
-int cpri1_handle(char *msg, int acq, int *num)
+int cpri4_handle(char *msg, int acq, int *num)
 {
 	unsigned int msg_id, msg_size;
 	int ret;
@@ -118,40 +118,40 @@ int cpri1_handle(char *msg, int acq, int *num)
 	switch(msg_id)
 	{
 		case CPRI_CHLINK_CFG:
-			ret = cpri1_comch_cfg(acq, msg);
+			ret = cpri4_comch_cfg(acq, msg);
 			break;
 		case CPRI_VERDOWN_QUE:
-			ret = cpri1_verdown_que(acq, msg);
+			ret = cpri4_verdown_que(acq, msg);
 			break;
 		case CPRI_VERACT_IND:
-			ret = cpri1_veract_ind(acq, msg);
+			ret = cpri4_veract_ind(acq, msg);
 			break;
 		case CPRI_STATE_QUE:
-			ret = cpri1_state_que(acq, msg);
+			ret = cpri4_state_que(acq, msg);
 			break;
 		case CPRI_PARA_QUE:
-			ret = cpri1_para_que(acq, msg);
+			ret = cpri4_para_que(acq, msg);
 			break;
 		case CPRI_PARACFG_QUE:
-			ret = cpri1_paracfg_que(acq, msg);
+			ret = cpri4_paracfg_que(acq, msg);
 			break;
 		case CPRI_DELAYMSE_QUE | CPRI_DELAYCFG_CMD:
-			ret = cpri1_delaymse_que(acq, msg);
+			ret = cpri4_delaymse_que(acq, msg);
 			break;
 		case CPRI_ALA_QUE:
-			ret = cpri1_ala_que(acq, msg);
+			ret = cpri4_ala_que(acq, msg);
 			break;
 		case CPRI_LOGUP_QUE:
-			ret = cpri1_logup_que(acq, msg);
+			ret = cpri4_logup_que(acq, msg);
 			break;
 		case CPRI_RESET_IND:
-			ret = cpri1_reset_ind(acq, msg);
+			ret = cpri4_reset_ind(acq, msg);
 			break;
 		case CPRI_BBUBEAT_MSG:
-			ret = cpri1_bbubeat_msg(acq, msg, num);
+			ret = cpri4_bbubeat_msg(acq, msg, num);
 			break;
 		case CPRI_LTE_CFG:
-			ret = cpri1_lte_cfg(acq, msg);
+			ret = cpri4_lte_cfg(acq, msg);
 			break;
 		default:
 			printf("msg_id error!\n");
@@ -161,14 +161,14 @@ int cpri1_handle(char *msg, int acq, int *num)
 	return ret;
 }
 
-int cpri1_creatsk(int type)
+int cpri4_creatsk(int type)
 {
-	char *device = ETH0, ip[20];
+	char *device = ETH3, ip[20];
 	int sk = 0;
-	struct sockaddr_in cpri1_client_addr;
+	struct sockaddr_in cpri4_client_addr;
 	struct ifreq ifreq;
 
-	memset(&cpri1_client_addr, 0, sizeof(struct sockaddr_in));
+	memset(&cpri4_client_addr, 0, sizeof(struct sockaddr_in));
 	memset(&ifreq, 0, sizeof(struct ifreq));
 
 	do
@@ -176,10 +176,10 @@ int cpri1_creatsk(int type)
 		sk = socket(AF_INET, type, 0);
 		if(sk < 0)
 		{
-			printf("cpri1 socket error!\n");
+			printf("cpri4 socket error!\n");
 			continue;
 		}
-		printf("cpri1 socket success!\n");
+		printf("cpri4 socket success!\n");
 
 		strcpy(ifreq.ifr_name, device);
 		if(ioctl(sk, SIOCGIFADDR, &ifreq) < 0)
@@ -190,28 +190,28 @@ int cpri1_creatsk(int type)
 			continue;
 		}
 		strcpy(ip, inet_ntoa(((struct sockaddr_in*)&ifreq.ifr_addr)->sin_addr));
-		printf("ip1:%s\n", ip);
-		cpri1_client_addr.sin_family = AF_INET;
-		cpri1_client_addr.sin_port = htons(33334);
-		cpri1_client_addr.sin_addr.s_addr = inet_addr(ip);
+		printf("ip4:%s\n", ip);
+		cpri4_client_addr.sin_family = AF_INET;
+		cpri4_client_addr.sin_port = htons(33334);
+		cpri4_client_addr.sin_addr.s_addr = inet_addr(ip);
 
-		if(bind(sk, (struct sockaddr*)&cpri1_client_addr, sizeof(struct sockaddr)) < 0)
+		if(bind(sk, (struct sockaddr*)&cpri4_client_addr, sizeof(struct sockaddr)) < 0)
 		{
-			printf("cpri1 bind error!\n");
+			printf("cpri4 bind error!\n");
 			close(sk);
 			sk = -1;
 			sleep(3);
 			continue;
 		}
-		printf("cpri1 bind success!\n");
+		printf("cpri4 bind success!\n");
 	}while(sk < 0);
 
 	return sk;
 }
 
-int cpri1tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr)
+int cpri4tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr)
 {
-	char *device = ETH0, ip[20];
+	char *device = ETH3, ip[20];
 	int ret = 0, len = 0, iOp = 1, sk;
 	struct ifreq ifreq;
 
@@ -225,7 +225,7 @@ int cpri1tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *c
 	cpri_que->rru_id = 1;
 	(cpri_addr->sin_addr).s_addr = inet_addr("255.255.255.255");
 
-	sk = cpri1_creatsk(SOCK_DGRAM);
+	sk = cpri4_creatsk(SOCK_DGRAM);
 
 	do
 	{
@@ -242,7 +242,7 @@ int cpri1tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *c
 		
 		if((ret = recvfrom(sk, cpri_ans, sizeof(BBU_HEAD), 0, (struct sockaddr*)cpri_addr, &len)) > 0)
 		{
-			printf("rru_id1: %d\n", cpri_ans->rru_id);
+			printf("rru_id4: %d\n", cpri_ans->rru_id);
 			if(cpri_que->rru_id != cpri_ans->rru_id)
 				ret = -1;
 			else
@@ -265,7 +265,7 @@ int cpri1tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *c
 	return 0;
 }
 
-int cpri1_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr)
+int cpri4_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr)
 {
 	char bbu_ip[20];
 	int sk, ret;
@@ -273,18 +273,18 @@ int cpri1_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr)
 	sprintf(bbu_ip, "%d.%d.%d.%d", cpri_ans.bbu_ip[0], cpri_ans.bbu_ip[1], cpri_ans.bbu_ip[2], cpri_ans.bbu_ip[3]);
 	(cpri_addr->sin_addr).s_addr = inet_addr(bbu_ip);
 
-	sk = cpri1_creatsk(SOCK_STREAM);
+	sk = cpri4_creatsk(SOCK_STREAM);
 
 	do
 	{
 		if((ret = connect(sk, (struct sockaddr*)cpri_addr, sizeof(struct sockaddr))) < 0)
 		{
-			printf("cpri1 connect error!\n");
+			printf("cpri4 connect error!\n");
 		}
 		sleep(3);
 	}while(ret < 0);
 
-	printf("cpri1 connect success!\n");
+	printf("cpri4 connect success!\n");
 	return sk;
 }
 

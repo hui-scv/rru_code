@@ -81,7 +81,7 @@ int write_str(char *msg, int i)
 		goto error;
 	}
 
-	ret = write(fd, msg, i * 510);
+	ret = write(fd, msg, 510);
 	if(ret < 0)
 	{
 		goto error;
