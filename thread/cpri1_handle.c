@@ -7,13 +7,22 @@
 
 
 
-/********************************************通信通道建立请求****************************************/
+/*
+ * 函数名：int cpri1_comch_req(int sk, BBU_HEAD cpri_ans)
+ * 功能描述：cpri向BBU端口发送所有关于通道建立请求的消息结构体。
+ * input：
+ * 		1、sk，具有TCP连接的套接字；
+ * 		2、cpri_ans，BBU应答RRU的广播信息结构体。
+ * output：
+ *		ret：发送数据的大小
+ */
 int cpri1_comch_req(int sk, BBU_HEAD cpri_ans)
 {
 	char send_msg[512];
 	int count = 0, ret = 0;
 	MSG_HEAD msg_head;
 
+	//初始化通道建立请求的消息头
 	msg_head.msg_id = CPRI_CHLINK_QUE;
 	msg_head.msg_size = 354;
 	msg_head.bbu_id = cpri_ans.bbu_id;
@@ -21,6 +30,7 @@ int cpri1_comch_req(int sk, BBU_HEAD cpri_ans)
 	msg_head.ray_id = cpri_ans.bbu_id & 0x0f;
 	msg_head.inc_num = 0;
 
+	//将消息头和通道建立请求的所有消息体都拷贝到send_msg数组中
 	memcpy(send_msg + count, &msg_head, sizeof(MSG_HEAD));
 	count += sizeof(MSG_HEAD);
 	memcpy(send_msg + count, &porid[0], sizeof(CL_PROID));
@@ -42,6 +52,7 @@ int cpri1_comch_req(int sk, BBU_HEAD cpri_ans)
 	memcpy(send_msg + count, &rrucir[0], sizeof(CL_RRUCIR));
 	count += sizeof(CL_RRUCIR);
 	
+	//发送给BBU端口
 	ret = send(sk, send_msg, count, 0);
 	
 	//printf("ret: %d, count: %d\n", ret, count);
@@ -49,7 +60,16 @@ int cpri1_comch_req(int sk, BBU_HEAD cpri_ans)
 }
 
 
-/********************************************通信通道建立配置****************************************/
+/*
+ * 函数名：int cpri1_comch_cfg(int sk, char *msg)
+ * 功能描述：cpri进行通道建立配置的操作。
+ * input：
+ * 		1、sk，具有TCP连接的套接字；
+ * 		2、msg，BBU端口应答cpri的通道建立配置消息体。
+ * output：
+ *		失败：-1；
+ *		成功：0
+ */
 int cpri1_comch_cfg(int sk, char *msg)
 {
 	char *src_addr, send_msg[512];
@@ -58,18 +78,23 @@ int cpri1_comch_cfg(int sk, char *msg)
 	MSG_HEAD msg_head;
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
+	//计算得到除去消息头的长度，有效消息体的总长度是多少
 	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;
 	memcpy((char *)&msg_head, msg, MSG_HEADSIZE);
 
 	for(i = 0; i < 6; i++)
 	{
+		//得到有效消息体ie的标识号
 		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
+		//除去消息头和有效消息体ie中的标识号和大小成员，得到的实际通道建立配置信息的地址
 		src_addr = msg + size + 4 + MSG_HEADSIZE;
+		//累计ie的长度，每执行一次增加一个ie的长度，最后会得到一个有效消息体的总长度
 		size += *(unsigned short *)(msg + size + 2 + MSG_HEADSIZE);
 		printf("ie_id : %d\n", ie_id);
 		printf("count : %d\n", count);
 		printf("size : %d\n", size);
 
+		//通过标识号去匹配相应ie需要执行的相应操作
 		switch(ie_id)
 		{
 			case 11:
@@ -85,6 +110,7 @@ int cpri1_comch_cfg(int sk, char *msg)
 				memcpy((char *)(&softchk[0]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
 				break;
 			case 504:
+				//完成Ir口工作模式配置并应答BBU
 				memcpy((char *)(&irmodecfg[0]) + 4, (char *)src_addr, sizeof(CL_IRMODECFG) - 
 4);
 				msg_head.msg_id = CPRI_CHLINK_ANS;
@@ -101,6 +127,7 @@ int cpri1_comch_cfg(int sk, char *msg)
 				return ret;
 		}
 
+		//当消息头中的ie总大小和实际计算出的ie总大小相等时，则成功
 		if(size == count)
 			return 0;
 	}
@@ -108,6 +135,16 @@ int cpri1_comch_cfg(int sk, char *msg)
 	return -1;
 }
 
+/*
+ * 函数名：void cpri1_comch_init(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
+ * 功能描述：cpri1将不断向BBU端口发送通信链路建立请求消息，直到BBU正确应答。
+ * input：
+ * 		1、sk，具有TCP连接的套接字；
+ * 		2、msg，用于接受BBU端口回复的信息；
+ * 		3、msg_head，消息头结构体；
+ * 		4、cpri_ans，BBU应答RRU的广播信息结构体。
+ * output：void
+ */
 void cpri1_comch_init(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
 {
 	char send_msg[512];
@@ -115,11 +152,12 @@ void cpri1_comch_init(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
 	fd_set rdfds;
 	struct timeval tv;
 
+	//cpri发送通信链路建立的消息集合请求
 	cpri1_comch_req(sk, cpri_ans);
 
 	while(1)
 	{
-		//接收BBU返回的通道建立配置，修改为等待10s，若没有响应则超时
+		//接收BBU返回的通道建立配置信息，等待10s，若没有接收到则超时
 		FD_ZERO(&rdfds);
 		FD_SET(sk, &rdfds);
 		tv.tv_sec = 10;
@@ -129,16 +167,19 @@ void cpri1_comch_init(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
 			printf("select erro!\n");
 		else if(ret == 0)
 		{
+			//当select返回0时，说明等待超时，此时就重新发送通道建立请求
 			printf("cpri1 chlink time out!\n");
 			rec_num = 0;
 			memset(msg, 0, sizeof(char) * 512);
 			cpri1_comch_req(sk, cpri_ans);
 			continue;
  		}else if(FD_ISSET(sk, &rdfds))
-			rec_num += recv(sk, msg + rec_num, 512, 0);
+			rec_num += recv(sk, msg + rec_num, 512, 0);		//等到应答后，进行接收数据。数据有可能不是1包发完，所以需要进行+=，累积之前接收的数据
 
+		//当接收的数据总大小和返回的消息头中指明数据的大小相等之后，说明数据接收完毕
 		if(rec_num >= ((MSG_HEAD *)msg)->msg_size && ((MSG_HEAD *)msg)->msg_size != 0)
 		{
+			//然后再判断是否是通道建立配置消息体
 			if(((MSG_HEAD *)msg)->msg_id == 2)
 			{
 				printf("ret\n");
@@ -150,6 +191,7 @@ void cpri1_comch_init(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
 				//返回配置响应
 				if(ret >= 0)
 				{
+					//发送配置成功的响应，并退出循环
 					msg_head->msg_id = CPRI_CHLINK_ANS;
 					msg_head->msg_size = MSG_HEADSIZE + chlinkans[0].ie_size;
 					memcpy(send_msg, (char *)msg_head, MSG_HEADSIZE);
@@ -169,6 +211,8 @@ void cpri1_comch_init(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
 				rec_num = 0;
 				memset(msg, 0, sizeof(char) * 512);
 			}
+
+			//发送配置失败的响应，并重新请求建立
 			msg_head->msg_id = CPRI_CHLINK_ANS;
 			msg_head->msg_size = MSG_HEADSIZE + chlinkans[0].ie_size;
 			memcpy(send_msg, (char *)msg_head, MSG_HEADSIZE);
