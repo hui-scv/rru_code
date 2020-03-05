@@ -7,10 +7,10 @@
 
 #include <stdio.h>
 #include <pthread.h>
-#include "include/init.h"
+#include "init.h"
 #include "include_pc/init_struct_pc.h"
-#include "include/init_struct.h"
-#include "include/thread/rru_thread.h"
+#include "init_struct.h"
+#include "thread/rru_thread.h"
 
 /*
  * 函数名：void main()

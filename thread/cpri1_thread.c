@@ -18,20 +18,24 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 
-#include "../include/thread/rru_thread.h"
-#include "../include/struct.h"
-#include "../include/thread/cpri1_handle.h"
+#include "thread/rru_thread.h"
+#include "struct.h"
+#include "thread/cpri1_handle.h"
+#include "usr.h"
 
 //服务器端口号
 #define SERVER_PORT 33333
-//cpri网口名称
-#define ETH0 "eth0"
+
+//定义告警标志位
+unsigned int cpri1_ala_flag = 0;
+char cpri1_bbu_ip[20];
 
 int cpri1_creatsk(int type);
 int cpri1_handle(char *msg, int acq, int *num);
 int cpri1tobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr);
 int cpri1_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr);
 
+CPRI_STATUS_S cpri1_status;
 
 /*
  * 函数名：void *cpri1_thread(void)
@@ -74,8 +78,12 @@ void *cpri1_thread(void)
 
 CHLINK:
 	/*****************
-	等待F态
+	等待F态，这里是揣测的state为0x1时，F态就绪
 	*****************/
+	cpri1_status.state = 1;
+	do{
+		cpri_status_read(0, 0, &cpri1_status);
+	}while((cpri1_status.state & 0x01) != 1);
 	
 	//RRU向BBU发送UDP广播，获取IP地址并设置
 	cpri1tobbu_req(&cpri1_que, &cpri1_ans, &cpri1_addr);
@@ -253,6 +261,8 @@ int cpri1_creatsk(int type)
 			continue;
 		}
 		printf("cpri1 bind success!\n");
+
+		setsockopt(sk, SOL_SOCKET, SO_BINDTODEVICE, (char *)&ifreq, sizeof(ifreq));
 	}while(sk < 0);
 
 	return sk;
@@ -352,8 +362,8 @@ int cpri1_tcpcon(BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr)
 	int sk, ret;
 
 	//将BBU端口的ip地址作为服务器的ip地址来进行设置
-	sprintf(bbu_ip, "%d.%d.%d.%d", cpri_ans.bbu_ip[0], cpri_ans.bbu_ip[1], cpri_ans.bbu_ip[2], cpri_ans.bbu_ip[3]);
-	(cpri_addr->sin_addr).s_addr = inet_addr(bbu_ip);
+	sprintf(cpri1_bbu_ip, "%d.%d.%d.%d", cpri_ans.bbu_ip[0], cpri_ans.bbu_ip[1], cpri_ans.bbu_ip[2], cpri_ans.bbu_ip[3]);
+	(cpri_addr->sin_addr).s_addr = inet_addr(cpri1_bbu_ip);
 
 	//创建使用TCP协议的套接字sk
 	sk = cpri1_creatsk(SOCK_STREAM);

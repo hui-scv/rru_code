@@ -2,6 +2,8 @@
 #define ___str_h__
 
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "chlink/chlink.h"
 
 #include "misc/ala_rep.h"
@@ -16,6 +18,18 @@
 #include "version/state_que.h"
 #include "version/ver_act.h"
 #include "version/ver_down.h"
+
+
+//cpri网口名称
+#define ETH0 "eth0"
+#define ETH1 "eth1"
+#define ETH2 "eth2"
+#define ETH3 "eth3"
+#define ETH4 "eth4"
+#define ETH5 "eth5"
+#define ETH6 "eth6"
+#define ETH7 "eth7"
+
 
 extern pthread_rwlock_t chlinkque_rwlock;
 
@@ -178,6 +192,8 @@ extern DM_DELAYCFGANS delaycfgans[8];
 extern AR_ALAQUE alaque[8];
 
 extern AR_ALAREP alarep[8];
+
+extern AR_ALAEXL alaexl[8];
 /*************************************************************************/
 
 extern LOG_UPQUE upque[8];

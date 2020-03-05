@@ -8,6 +8,10 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <sys/time.h>
+
 #include "include/struct.h"
 #include "include/init.h"
 
@@ -30,6 +34,101 @@ void rf_init(void)
 {
 	printf("rf is inited!\n");
 }
+
+/*
+ * 函数名：unsigned int get_val(char *s, int num)
+ * 功能描述：从一行字符串中取得前后以空格隔开的字符。
+ * input：
+ 		1、s，指向字符串的指针；
+ 		2、num，想要取得的第几个字符。
+ * output：
+ *		res：从字符转换成的数字
+ */
+unsigned int get_val(char *s, int num)
+{
+	char *c, *b, number[11];
+	unsigned int i = 0, j = 0, k = 0, res = 0;
+
+	memset(number, 0, 11);
+	c = s;
+
+	for(k = 0; k < 200; k++)
+	{
+		//当前字符为空格时，并且下一个字符不为空格时，可以取得此字符
+		if(*c++ == ' ' && *c != ' ')
+		{
+			b = c;		//记录不为空格的字符所在的位置
+			i++;
+			if(i == num)
+			{
+				for(j = 0; j < 11; j++)
+					if(*++c == ' ')
+						break;
+				memcpy(number, b, j+1);		//将此数字字符复制到数组中
+				res = atoi(number);			//然后将它转化为整形数字
+				//printf("%d\n", res);
+				return res;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * 函数名：void signalHandler(int signo)
+ * 功能描述：当信号发生时的处理函数。
+ * input：
+ 		1、signo，导致信号发生的信号类型
+ * output：void
+ */
+void signalHandler(int signo)
+{
+	FILE *fd;
+	char s[512];
+	static unsigned int new_total = 0, old_total = 0, new_idle = 0, old_idle = 0, flag = 0;
+	int i;
+	float p;
+
+	//打开/proc/stat文件，读取cpu使用的信息
+	fd = fopen("/proc/stat", "r");
+
+	//打开文件失败就返回
+	if(fd < 0)
+		return;
+
+	//取出文件的第一行信息
+	fgets(s, 512, fd);
+	//printf("cpu:%s\n", s);
+
+	if(flag == 0)		//当flag为0时，采用新的时间减去旧的时间来计算cpu使用率
+	{
+		new_total = 0;
+		new_idle = get_val(s, 4);	//得到cpu的空闲时间
+		for(i = 0; i < 8; i++)
+			new_total += get_val(s, i + 1);		//得到cpu总共运行的时间
+		
+		p = ((float)(new_idle - old_idle)) / ((float)(new_total - old_total));	//使用空闲时间除以总共运行时间
+		p = (1 - p) * 100;		//这就能得到cpu的占用率了
+		printf("nCPU: %f\n", p);
+	}else				//当flag为1时，采用旧的时间减去新的时间来计算cpu使用率
+	{
+		old_total = 0;
+		old_idle = get_val(s, 4);	//得到cpu的空闲时间
+		for(i = 0; i < 8; i++)
+			old_total += get_val(s, i + 1);		//得到cpu总共运行的时间
+		
+		p = ((float)(old_idle - new_idle)) / ((float)(old_total - new_total));	//使用空闲时间除以总共运行时间
+		p = (1 - p) * 100;		//这就能得到cpu的占用率了
+		printf("oCPU: %f\n", p);
+	}
+	flag = ~flag;
+
+	cpurateans[0].cpu_rate = (unsigned int)p;	//设置cpu的占用率，这个占用率设置在CPU占用响应IE，即参数查询时
+
+	fclose(fd);
+}
+
 
 /*
  * 函数名：int cpri_read_str(char *msg, int i)
@@ -83,6 +182,7 @@ fd_error:
  */
 void init(void)
 {
+	struct itimerval new_value;
 	char msg[512];
 	int i, j, ret;
 	//pthread_rwlock_init(&chlinkque_rwlock, NULL);
@@ -145,4 +245,24 @@ void init(void)
 	time_init();
 	//射频模块初始化配置
 	rf_init();
+
+	//绑定信号发生时的处理函数
+	signal(SIGALRM, signalHandler);
+
+	//根据cpu占用率统计周期是否设置
+	if(ratecycans[0].rate_cyc <= 0)
+	{
+		new_value.it_value.tv_sec = 1;
+		new_value.it_value.tv_usec = 0;
+		new_value.it_interval.tv_sec = 10;
+		new_value.it_interval.tv_usec = 0;
+		setitimer(ITIMER_REAL, &new_value, NULL);
+	}else
+	{
+		new_value.it_value.tv_sec = 1;
+		new_value.it_value.tv_usec = 0;
+		new_value.it_interval.tv_sec = ratecycans[0].rate_cyc;
+		new_value.it_interval.tv_usec = 0;
+		setitimer(ITIMER_REAL, &new_value, NULL);
+	}
 }
