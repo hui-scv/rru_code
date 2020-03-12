@@ -125,6 +125,14 @@ CL_SOFTCHK softchk[] =
 	}
 };
 
+CL_SOFTCHK bioschk[] =
+{[0 ... 7] = 
+	{
+	.ie_id = 14,
+	.ie_size = 289,
+	}
+};
+
 CL_IRMODECFG irmodecfg[] =
 {[0 ... 7] = 
 	{

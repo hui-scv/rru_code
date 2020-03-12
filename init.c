@@ -131,6 +131,55 @@ void signalHandler(int signo)
 
 
 /*
+ * 函数名：int cpri_write_str(const char *msg, int i)
+ * 功能描述：读取RRU系统信息的接口，将上一次配置的RRU信息读取出来并采用。
+ * input：
+ * 		1、msg，指向一段内存的指针，用于传递写入的消息；
+ *		2、i， 用于指明是哪部份的系统信息。
+ * output：
+ * 		成功：ret，读出数据的size；
+ * 		失败：-1
+ */
+int cpri_write_str(const char *msg, int i)
+{
+	int fd, ret;
+
+	//打开存储rru系统信息的文件，如果文件不存在，则创建一个新文件
+	fd = open("./rru_info.dat", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+	if(fd < 0)
+	{
+		perror("open rru_info");
+		goto fd_error;
+	}
+
+	//定位到要写入rru系统信息中的某一项信息的开头位置，如果定位失败就关闭文件并返回-1
+	ret = lseek(fd, (i - 1) * 512, SEEK_SET);
+	if(ret < 0)
+	{
+		perror("lseek rru_info");
+		goto error;
+	}
+
+	//写入rru系统信息中的某一项信息，如果写入失败就关闭文件并返回-1
+	ret = write(fd, msg, 512);
+	if(ret < 0)
+	{
+		perror("write rru_info");
+		goto error;
+	}
+	
+	//读取成功，关闭文件
+	close(fd);
+	return ret;
+
+error:
+	close(fd);
+fd_error:
+	return -1;
+}
+
+
+/*
  * 函数名：int cpri_read_str(char *msg, int i)
  * 功能描述：读取RRU系统信息的接口，将上一次配置的RRU信息读取出来并采用。
  * input：
@@ -147,19 +196,24 @@ int cpri_read_str(char *msg, int i)
 	//打开存储rru系统信息的文件，如果打开失败则返回-1
 	fd = open("./rru_info.dat", O_RDONLY);
 	if(fd < 0)
+	{
+		perror("open rru_info");
 		goto fd_error;
+	}
 
 	//定位到要读取rru系统信息中的某一项信息的开头位置，如果读取失败就关闭文件并返回-1
-	ret = lseek(fd, (i - 1) * 510, SEEK_SET);
+	ret = lseek(fd, (i - 1) * 512, SEEK_SET);
 	if(ret < 0)
 	{
+		perror("lseek rru_info");
 		goto error;
 	}
 
 	//读取rru系统信息中的某一项信息，如果读取失败就关闭文件并返回-1
-	ret = read(fd, msg, 510);
+	ret = read(fd, msg, 512);
 	if(ret < 0)
 	{
+		perror("read rru_info");
 		goto error;
 	}
 	
@@ -170,7 +224,6 @@ int cpri_read_str(char *msg, int i)
 error:
 	close(fd);
 fd_error:
-	printf("read_str error!\n");
 	return -1;
 }
 
@@ -189,52 +242,55 @@ void init(void)
 
 	//按照id号为1-10来读取RRU系统信息的结构体，然后将其存储到8个cpri接口中。
 	//这里有个问题就是是否每个cpri的系统信息都相同？如果不同则不可以这样做！
-	for(i = 1; i < 10; i++)
+	for(i = 1; i < 11; i++)
 	{
 		memset(msg, 0, 512);
 		ret = cpri_read_str(msg, i);
-		for(j = 0; j < 8; j++)
-		{
-			switch(i)
+		if(ret == 0)
+			for(j = 0; j < 8; j++)
 			{
-				case 1:
-					//memcpy((char *)(&porid_pc) + 4, (char *)msg + 4, sizeof(CL_PROID_PC) - 4);
-					memcpy((char *)(&porid[j]) + 4, (char *)msg + 4, sizeof(CL_PROID) - 4);
-					break;
-				case 2:
-					//memcpy((char *)(&linktype_pc) + 4, (char *)msg + 4, sizeof(CL_LINKTYPE_PC) - 4);
-					memcpy((char *)(&linktype[j]) + 4, (char *)msg + 4, sizeof(CL_LINKTYPE) - 4);
-					break;
-				case 3:
-					//memcpy((char *)(&rrucapa_pc) + 4, (char *)msg + 4, sizeof(CL_RRUCAPA_PC) - 4);
-					memcpy((char *)(&rrucapa[j]) + 4, (char *)msg + 4, sizeof(CL_RRUCAPA) - 4);
-					break;
-				case 4:
-					//rrulv_pc.rru_lv = ((CL_RRULV_PC *)msg)->rru_lv;
-					rrulv[j].rru_lv = ((CL_RRULV *)msg)->rru_lv;
-					break;
-				case 5:
-					//memcpy((char *)(&rruinfo_pc) + 4, (char *)msg + 4, sizeof(CL_RRUINFO_PC) - 4);
-					memcpy((char *)(&rruinfo) + 4, (char *)msg + 4, sizeof(CL_RRUINFO) - 4);
-					break;
-				case 6:
-					//memcpy((char *)(&rrusoftinfo_pc) + 4, (char *)msg + 4, sizeof(CL_RRUSOFTINFO_PC) - 4);
-					memcpy((char *)(&rrusoftinfo) + 4, (char *)msg + 4, sizeof(CL_RRUSOFTINFO) - 4);
-					break;
-				case 7:
-					//memcpy((char *)(&rrufre_pc) + 4, (char *)msg + 4, sizeof(CL_RRUFRE_PC) - 4);
-					memcpy((char *)(&rrufre) + 4, (char *)msg + 4, sizeof(CL_RRUFRE) - 4);
-					break;
-				case 8:
-					//memcpy((char *)(&rrurf_pc) + 4, (char *)msg + 4, sizeof(CL_RRURF_PC) - 4);
-					memcpy((char *)(&rrurf) + 4, (char *)msg + 4, sizeof(CL_RRURF) - 4);
-					break;
-				case 9:
-					//memcpy((char *)(&rrucir_pc) + 4, (char *)msg + 4, sizeof(CL_RRUCIR_PC) - 4);
-					memcpy((char *)(&rrucir) + 4, (char *)msg + 4, sizeof(CL_RRUCIR) - 4);
-					break;
+				switch(i)
+				{
+					case 1:		//RRU产品标识IE
+						//memcpy((char *)(&porid_pc) + 4, (char *)msg + 4, sizeof(CL_PROID_PC) - 4);
+						memcpy((char *)(&porid[j]) + 4, (char *)msg + 4, sizeof(CL_PROID) - 4);
+						break;
+					case 2:		//通道建立原因IE
+						//memcpy((char *)(&linktype_pc) + 4, (char *)msg + 4, sizeof(CL_LINKTYPE_PC) - 4);
+						memcpy((char *)(&linktype[j]) + 4, (char *)msg + 4, sizeof(CL_LINKTYPE) - 4);
+						break;
+					case 3:		//RRU能力IE
+						//memcpy((char *)(&rrucapa_pc) + 4, (char *)msg + 4, sizeof(CL_RRUCAPA_PC) - 4);
+						memcpy((char *)(&rrucapa[j]) + 4, (char *)msg + 4, sizeof(CL_RRUCAPA) - 4);
+						break;
+					case 4:		//RRU级数IE
+						//rrulv_pc.rru_lv = ((CL_RRULV_PC *)msg)->rru_lv;
+						rrulv[j].rru_lv = ((CL_RRULV *)msg)->rru_lv;
+						break;
+					case 5:		//RRU硬件类型及版本信息IE
+						//memcpy((char *)(&rruinfo_pc) + 4, (char *)msg + 4, sizeof(CL_RRUINFO_PC) - 4);
+						memcpy((char *)(&rruinfo[j]) + 4, (char *)msg + 4, sizeof(CL_RRUINFO) - 4);
+						break;
+					case 6:		//RRU软件版本信息IE
+						//memcpy((char *)(&rrusoftinfo_pc) + 4, (char *)msg + 4, sizeof(CL_RRUSOFTINFO_PC) - 4);
+						memcpy((char *)(&rrusoftinfo[j]) + 4, (char *)msg + 4, sizeof(CL_RRUSOFTINFO) - 4);
+						break;
+					case 7:		//RRU频段能力IE
+						//memcpy((char *)(&rrufre_pc) + 4, (char *)msg + 4, sizeof(CL_RRUFRE_PC) - 4);
+						memcpy((char *)(&rrufre[j]) + 4, (char *)msg + 4, sizeof(CL_RRUFRE) - 4);
+						break;
+					case 8:		//RRU射频通道能力IE
+						//memcpy((char *)(&rrurf_pc) + 4, (char *)msg + 4, sizeof(CL_RRURF_PC) - 4);
+						memcpy((char *)(&rrurf[j]) + 4, (char *)msg + 4, sizeof(CL_RRURF) - 4);
+						break;
+					case 9:		//载波能力组合IE
+						//memcpy((char *)(&rrucir_pc) + 4, (char *)msg + 4, sizeof(CL_RRUCIR_PC) - 4);
+						memcpy((char *)(&rrucir[j]) + 4, (char *)msg + 4, sizeof(CL_RRUCIR) - 4);
+					case 10:	//CPU占用率统计周期响应IE
+						memcpy((char *)(&ratecycans[j]) + 4, (char *)msg + 4, sizeof(PQ_RATECYCANS) - 4);
+						break;
+				}
 			}
-		}
 	}
 	
 	//外设驱动初始化

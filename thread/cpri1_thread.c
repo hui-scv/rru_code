@@ -78,12 +78,13 @@ void *cpri1_thread(void)
 
 CHLINK:
 	/*****************
-	等待F态，这里是揣测的state为0x1时，F态就绪
+	等待F态，这里是揣测的state为0x05时，F态就绪
 	*****************/
-	cpri1_status.state = 1;
+	cpri1_status.state = 5;
 	do{
 		cpri_status_read(0, 0, &cpri1_status);
-	}while((cpri1_status.state & 0x01) != 1);
+		sleep(3);
+	}while(cpri1_status.state != 5);
 	
 	//RRU向BBU发送UDP广播，获取IP地址并设置
 	cpri1tobbu_req(&cpri1_que, &cpri1_ans, &cpri1_addr);
@@ -99,21 +100,22 @@ CHLINK:
 	*****************/
 	memset(msg, 0, sizeof(char) * 512);
 
+	FD_ZERO(&rdfds);	//设置文件描述符的集合，并清除它
+	FD_SET(sk, &rdfds);	//将sk加入此集合
+
 	while(1)
 	{
 		//接收BBU端发送的请求，等待3s，若没有接收到则超时
-		FD_ZERO(&rdfds);
-		FD_SET(sk, &rdfds);
 		tv.tv_sec = 3;
 		tv.tv_usec = 0;
-		ret = select(sk + 1, &rdfds, NULL, NULL, &tv);
+		ret = select(sk + 1, &rdfds, NULL, NULL, &tv);	//等待文件描述符集合中文件有数据可读
 		if(ret < 0)
 			printf("select erro!\n");
 		else if(ret == 0)
 		{
 			rec_num = 0;
 			memset(msg, 0, sizeof(char) * 512);
- 		}else if(FD_ISSET(sk, &rdfds))
+ 		}else if(FD_ISSET(sk, &rdfds))		//判断此文件描述符在集合中
 			rec_num += recv(sk, msg + rec_num, 512, 0);
 
 		//num用于记录多少次没有接收到心跳包，如果连续3次没有接收到心跳包，则次cpri接口重启

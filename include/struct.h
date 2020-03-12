@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
 #include "chlink/chlink.h"
 
 #include "misc/ala_rep.h"
@@ -58,6 +59,8 @@ extern CL_LINKADDR linkaddr[8];
 extern CL_RRUMODE rrumode[8];
 
 extern CL_SOFTCHK softchk[8];
+
+extern CL_SOFTCHK bioschk[8];
 
 extern CL_IRMODECFG irmodecfg[8];
 

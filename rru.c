@@ -19,7 +19,7 @@
  * input：void
  * output：void
  */
-void main()
+int main()
 {
 	int ret = 0;
 	pthread_t thread_id[10];

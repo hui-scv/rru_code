@@ -12,6 +12,7 @@
 
 #include <errno.h>
 
+#include "struct.h"
 
 /*
  * FTP Retrun Code
@@ -276,12 +277,12 @@ int ftp_down(char *net_name, char *server_ip, char *local_file, char *server_fil
 	}
 	printf("FTP READY!\n");
 	// Login
-	switch(ftpcmd(gCmdSock, "USER", "ftp", cpri_num))
+	switch(ftpcmd(gCmdSock, "USER", ftpinfo[cpri_num].usr, cpri_num))
 	{
 		case 230:
 			break;
 		case 331:
-			if(ftpcmd(gCmdSock, "PASS", "123", cpri_num) != 230)
+			if(ftpcmd(gCmdSock, "PASS", ftpinfo[cpri_num].pwd, cpri_num) != 230)
 			{
 				fprintf(stderr, "Wrong password\n");
 				close(gCmdSock);
@@ -345,12 +346,12 @@ int ftp_up(char *net_name, char *server_ip, char *local_file, char *server_file,
 	}
 	printf("FTP READY!\n");
 	// Login
-	switch(ftpcmd(gCmdSock, "USER", "ftp", cpri_num))
+	switch(ftpcmd(gCmdSock, "USER", ftpinfo[cpri_num].usr, cpri_num))
 	{
 		case 230:
 			break;
 		case 331:
-			if(ftpcmd(gCmdSock, "PASS", "123", cpri_num) != 230)
+			if(ftpcmd(gCmdSock, "PASS", ftpinfo[cpri_num].pwd, cpri_num) != 230)
 			{
 				fprintf(stderr, "Wrong password\n");
 				close(gCmdSock);
