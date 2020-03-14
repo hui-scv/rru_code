@@ -21,7 +21,7 @@
  */
 int main()
 {
-	int ret = 0;
+	int ret = 0, arg[8] = {0, 1, 2, 3, 4, 5, 6, 7};
 	pthread_t thread_id[10];
 
 	init();
@@ -35,7 +35,7 @@ int main()
 	}
 
 	//创建cpri接口1任务线程
-	ret = pthread_create(&thread_id[1], NULL, (void *)cpri1_thread, NULL);
+	ret = pthread_create(&thread_id[1], NULL, (void *)cpri_thread, (void *)&arg[0]);
 	if(ret != 0)
 	{
 		printf("create cpri1_thread error!\n");
@@ -43,58 +43,58 @@ int main()
 	}
 	
 	//创建cpri接口2任务线程
-	ret = pthread_create(&thread_id[2], NULL, (void *)cpri2_thread, NULL);
+	ret = pthread_create(&thread_id[2], NULL, (void *)cpri_thread, (void *)&arg[1]);
 	if(ret != 0)
 	{
-		printf("create cpri1_thread error!\n");
+		printf("create cpri2_thread error!\n");
 		return;
 	}
 
 	//创建cpri接口3任务线程
-	ret = pthread_create(&thread_id[3], NULL, (void *)cpri3_thread, NULL);
+	ret = pthread_create(&thread_id[3], NULL, (void *)cpri_thread, (void *)&arg[2]);
 	if(ret != 0)
 	{
-		printf("create cpri1_thread error!\n");
+		printf("create cpri3_thread error!\n");
 		return;
 	}
 
 	//创建cpri接口4任务线程
-	ret = pthread_create(&thread_id[4], NULL, (void *)cpri4_thread, NULL);
+	ret = pthread_create(&thread_id[4], NULL, (void *)cpri_thread, (void *)&arg[3]);
 	if(ret != 0)
 	{
-		printf("create cpri1_thread error!\n");
+		printf("create cpri4_thread error!\n");
 		return;
 	}
 
 	//创建cpri接口5任务线程
-	ret = pthread_create(&thread_id[5], NULL, (void *)cpri5_thread, NULL);
+	ret = pthread_create(&thread_id[5], NULL, (void *)cpri_thread, (void *)&arg[4]);
 	if(ret != 0)
 	{
-		printf("create cpri1_thread error!\n");
+		printf("create cpri5_thread error!\n");
 		return;
 	}
 
 	//创建cpri接口6任务线程
-	ret = pthread_create(&thread_id[6], NULL, (void *)cpri6_thread, NULL);
+	ret = pthread_create(&thread_id[6], NULL, (void *)cpri_thread, (void *)&arg[5]);
 	if(ret != 0)
 	{
-		printf("create cpri1_thread error!\n");
+		printf("create cpri6_thread error!\n");
 		return;
 	}
 
 	//创建cpri接口7任务线程
-	ret = pthread_create(&thread_id[7], NULL, (void *)cpri7_thread, NULL);
+	ret = pthread_create(&thread_id[7], NULL, (void *)cpri_thread, (void *)&arg[6]);
 	if(ret != 0)
 	{
-		printf("create cpri1_thread error!\n");
+		printf("create cpri7_thread error!\n");
 		return;
 	}
 
 	//创建cpri接口8任务线程
-	ret = pthread_create(&thread_id[8], NULL, (void *)cpri8_thread, NULL);
+	ret = pthread_create(&thread_id[8], NULL, (void *)cpri_thread, (void *)&arg[7]);
 	if(ret != 0)
 	{
-		printf("create cpri1_thread error!\n");
+		printf("create cpri7_thread error!\n");
 		return;
 	}
 

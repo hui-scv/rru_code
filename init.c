@@ -95,8 +95,11 @@ void signalHandler(int signo)
 
 	//打开文件失败就返回
 	if(fd < 0)
+	{
+		perror("read cpu rate");
 		return;
-
+	}
+	
 	//取出文件的第一行信息
 	fgets(s, 512, fd);
 	//printf("cpu:%s\n", s);
@@ -246,7 +249,7 @@ void init(void)
 	{
 		memset(msg, 0, 512);
 		ret = cpri_read_str(msg, i);
-		if(ret == 0)
+		if(ret > 0)
 			for(j = 0; j < 8; j++)
 			{
 				switch(i)
@@ -312,13 +315,16 @@ void init(void)
 		new_value.it_value.tv_usec = 0;
 		new_value.it_interval.tv_sec = 10;
 		new_value.it_interval.tv_usec = 0;
-		setitimer(ITIMER_REAL, &new_value, NULL);
+		ret = setitimer(ITIMER_REAL, &new_value, NULL);
 	}else
 	{
 		new_value.it_value.tv_sec = 1;
 		new_value.it_value.tv_usec = 0;
 		new_value.it_interval.tv_sec = ratecycans[0].rate_cyc;
 		new_value.it_interval.tv_usec = 0;
-		setitimer(ITIMER_REAL, &new_value, NULL);
+		ret = setitimer(ITIMER_REAL, &new_value, NULL);
 	}
+
+	if(ret == -1)
+		perror("read cpu rate");
 }
