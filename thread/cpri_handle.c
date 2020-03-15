@@ -44,8 +44,8 @@ int cpri_comch_req(const int sk, const BBU_HEAD cpri_ans, const int cpri_num)
 	msg_head.msg_size = 354;
 	msg_head.bbu_id = cpri_ans.bbu_id;
 	msg_head.rru_id = cpri_ans.rru_id;
-	msg_head.ray_id = cpri_ans.bbu_id & 0x0f;
-	msg_head.inc_num = 0;
+	msg_head.ray_id = cpri_ans.bbu_num;
+	msg_head.inc_num = 1;
 
 	//将消息头和通道建立请求的所有消息体都拷贝到send_msg数组中
 	memcpy(send_msg + count, &msg_head, sizeof(MSG_HEAD));
@@ -479,13 +479,18 @@ int cpri_state_que(const int sk, char *msg, const int cpri_num)
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送载波状态查询响应消息体
 				break;
 			case 304:		//本振状态查询
-				msg_head.msg_size = MSG_HEADSIZE + oscans[cpri_num].ie_size;
+				msg_head.msg_size = MSG_HEADSIZE + oscans[cpri_num].ie_size*2;
+				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				//对DA的本振状态查询
 				status_read(0, &status);
 				oscans[cpri_num].osc_fre = device_read(0, 0x06, 0);
 				oscans[cpri_num].sta = status.da_clk_pll_state;
-				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&oscans[cpri_num]), sizeof(SQ_OSCANS));
+				//对AD的本振状态查询
+				status_read(0, &status);
+				oscans[cpri_num].osc_fre = device_read(0, 0x04, 0);
+				oscans[cpri_num].sta = status.ad_clk_pll_state;
+				memcpy(send_msg + MSG_HEADSIZE + oscans[cpri_num].ie_size, (char *)(&oscans[cpri_num]), sizeof(SQ_OSCANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送本振状态查询响应消息体
 				break;
 			case 305:		//时钟状态查询
