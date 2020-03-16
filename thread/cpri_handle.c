@@ -458,7 +458,9 @@ int cpri_state_que(const int sk, char *msg, const int cpri_num)
 			case 302:		//射频通道状态查询
 				memcpy((char *)(&rfchsta[cpri_num]) + 4, (char *)src_addr, sizeof(SQ_RFCHSTA) - 4);	//取得查询请求的消息体内容
 				msg_head.msg_size = MSG_HEADSIZE + rfchans[cpri_num].ie_size;
+#ifdef PPC
 				status_read(rfchsta[cpri_num].ch_num/3, &status);
+#endif
 				rfchans[cpri_num].ul_sta = status.ad_work_state;
 				rfchans[cpri_num].dl_sta = status.da_work_state;
 				rfchans[cpri_num].ch_num = rfchsta[cpri_num].ch_num;
@@ -481,14 +483,18 @@ int cpri_state_que(const int sk, char *msg, const int cpri_num)
 			case 304:		//本振状态查询
 				msg_head.msg_size = MSG_HEADSIZE + oscans[cpri_num].ie_size*2;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+#ifdef PPC
 				//对DA的本振状态查询
 				status_read(0, &status);
-				oscans[cpri_num].osc_fre = device_read(0, 0x06, 0);
+				oscans[cpri_num].osc_fre = device_read(cpri_num/4, 0x06, 0);
+#endif
 				oscans[cpri_num].sta = status.da_clk_pll_state;
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&oscans[cpri_num]), sizeof(SQ_OSCANS));
+#ifdef PPC
 				//对AD的本振状态查询
 				status_read(0, &status);
-				oscans[cpri_num].osc_fre = device_read(0, 0x04, 0);
+				oscans[cpri_num].osc_fre = device_read(cpri_num/4, 0x04, 0);
+#endif
 				oscans[cpri_num].sta = status.ad_clk_pll_state;
 				memcpy(send_msg + MSG_HEADSIZE + oscans[cpri_num].ie_size, (char *)(&oscans[cpri_num]), sizeof(SQ_OSCANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送本振状态查询响应消息体
@@ -623,8 +629,10 @@ int cpri_para_que(const int sk, char *msg, const cpri_num)
 			case 404:		//RRU温度查询
 				msg_head.msg_size = MSG_HEADSIZE + rrutemans[cpri_num].ie_size;
 				rrutemans[cpri_num].tem_type = 0;		//设置温度查询类型为射频通道温度，因为只有这一个选项
+#ifdef PPC
 				//FPGA的温度读取，射频通道温度待定
 				status_read(cpri_num/4, &status);
+#endif
 				rrutemans[cpri_num].rfch_num = 0;
 				rrutemans[cpri_num].tem_val = status.fpga_tempatrue;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
@@ -667,8 +675,10 @@ int cpri_para_que(const int sk, char *msg, const cpri_num)
 				break;
 			case 409:		//状态机查询
 				msg_head.msg_size = MSG_HEADSIZE + stamachans[cpri_num].ie_size;
+#ifdef PPC
 				//状态机查询应该是读取cpri状态来的
 				cpri_status_read(0, 0, &cpri_status);
+#endif
 				stamachans[cpri_num].state = cpri_status.state;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&stamachans[cpri_num]), sizeof(PQ_STAMACHANS));
@@ -841,12 +851,16 @@ int cpri_paracfg_que(const int sk, char *msg, const int cpri_num)
 				//射频通道状态配置
 				if(rfchans[*(char *)src_addr - 1].dl_sta != 0)	//射频通道使能
 				{	
+#ifdef PPC
 					da_recall_mode_set((*(char *)src_addr-1)/2, (*(char *)src_addr-1)%2, 0);
 					rfchstacfgans[cpri_num].res = da_recall_enable((*(char *)src_addr-1)/2, (*(char *)src_addr-1)%2, 1);
+#endif
 				}else											//射频通道失能
 				{
+#ifdef PPC
 					da_recall_mode_set((*(char *)src_addr-1)/2, (*(char *)src_addr-1)%2, 0);
 					rfchstacfgans[cpri_num].res = da_recall_enable((*(char *)src_addr-1)/2, (*(char *)src_addr-1)%2, 0);
+#endif
 				}
 				rfchstacfgans[cpri_num].ch_num = *(char *)src_addr;
 				msg_head.msg_size = MSG_HEADSIZE + rfchstacfgans[cpri_num].ie_size;

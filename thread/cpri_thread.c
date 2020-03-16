@@ -82,6 +82,7 @@ void *cpri_thread(void *cpri_n)
 	cpri_num = *(int *)cpri_n;
 
 CHLINK:
+#ifdef PPC
 	/*****************
 	等待F态，这里是揣测的state为0x05时，F态就绪
 	*****************/
@@ -90,7 +91,8 @@ CHLINK:
 		cpri_status_read(0, 0, &cpri_status[cpri_num]);
 		sleep(3);
 	}while(cpri_status[cpri_num].state != 5);
-	
+#endif
+
 	//RRU向BBU发送UDP广播，获取IP地址并设置
 	cpritobbu_req(&cpri_que, &cpri_ans, &cpri_addr, cpri_num);
 
