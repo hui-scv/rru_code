@@ -128,6 +128,13 @@ int cpri_comch_cfg(const int sk, char *msg, const int cpri_num)
 				break;
 			case 13:	//RRU操作模式设置，目前固定为正常模式
 				memcpy((char *)(&rrumode[cpri_num]) + 4, (char *)src_addr, sizeof(CL_RRUMODE) - 4);
+				if(rrumode[cpri_num].mode == 1)		//设置为测试模式
+				{
+					runans[cpri_num].sta = 1;
+#ifdef PPC
+					da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 1);
+#endif
+				}
 				break;
 			case 14:	//软件版本核对结果，这个结果是由BBU得出的
 				if(*(char *)src_addr == 0)	//将软件的版本核对结果赋值
@@ -459,23 +466,44 @@ int cpri_state_que(const int sk, char *msg, const int cpri_num)
 				memcpy((char *)(&rfchsta[cpri_num]) + 4, (char *)src_addr, sizeof(SQ_RFCHSTA) - 4);	//取得查询请求的消息体内容
 				msg_head.msg_size = MSG_HEADSIZE + rfchans[cpri_num].ie_size;
 #ifdef PPC
-				status_read(rfchsta[cpri_num].ch_num/3, &status);
+				status_read(cpri_num/4, &status);	//等待给出使能读取接口
 #endif
-				rfchans[cpri_num].ul_sta = status.ad_work_state;
-				rfchans[cpri_num].dl_sta = status.da_work_state;
-				rfchans[cpri_num].ch_num = rfchsta[cpri_num].ch_num;
-				//rfchans[0].ch_num = rfchsta[0].ch_num;		//设置要查询的射频通道号
-				//rfchans[0].ul_sta += 0;		//设置上行通道状态响应，这里不需要设置，因为在参数配置时会进行设置它。
-				//rfchans[0].dl_sta += 0;		//设置下行通道状态响应，这里不需要设置，因为在参数配置时会进行设置它。
+				if(0)		//上行通道未使能
+				{
+					rfchans[cpri_num].ul_sta = 0;
+				}
+				else		//上行通道已使能
+				{
+					if(status.ad_work_state == 1)
+						rfchans[cpri_num].ul_sta = 1;	//上行通道无故障
+					else
+						rfchans[cpri_num].ul_sta = 2;	//上行通道有故障
+				}
+				
+				if(0)		//下行通道未使能
+				{
+					rfchans[cpri_num].dl_sta = 0;
+				}
+				else		//下行通道已使能
+				{
+					if(status.da_work_state == 1)
+						rfchans[cpri_num].dl_sta = 1;	//下行通道无故障
+					else
+						rfchans[cpri_num].dl_sta = 2;	//下行通道有故障
+				}
+				rfchans[cpri_num].ch_num = rfchsta[cpri_num].ch_num;	//设置要查询的射频通道号
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rfchans[cpri_num]), sizeof(SQ_RFCHANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送射频通道状态查询响应消息体
 				break;
 			case 303:		//载波状态查询
 				msg_head.msg_size = MSG_HEADSIZE + cirans[cpri_num].ie_size;
-				cirans[cpri_num].ant_num += 0;		//设置天线组号，这里不需要设置，因为在参数配置时会进行设置它。
-				cirans[cpri_num].cir_num = 1;		//设置载波号
-				cirans[cpri_num].sta = rfchans[cpri_num].dl_sta;		//设置载波使能或非使能状态，通过读取射频通道状态来获取。
+				cirans[cpri_num].ant_num = 1;		//设置天线组号，因为1个ip对应1个通道，所以设为1。
+				cirans[cpri_num].cir_num = 1;		//设置载波号，因为1个ip对应1个通道，所以设为1。
+				if(rfchans[cpri_num].dl_sta == 0)
+					cirans[cpri_num].sta = 1;		//设置载波非使能，通过读取射频通道状态来获取。
+				else
+					cirans[cpri_num].sta = 0;		//设置载波使能，通过读取射频通道状态来获取。
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&cirans[0]), sizeof(SQ_CIRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送载波状态查询响应消息体
@@ -485,44 +513,57 @@ int cpri_state_que(const int sk, char *msg, const int cpri_num)
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 #ifdef PPC
 				//对DA的本振状态查询
-				status_read(0, &status);
+				status_read(cpri_num/4, &status);
 				oscans[cpri_num].osc_fre = device_read(cpri_num/4, 0x06, 0);
 #endif
-				oscans[cpri_num].sta = status.da_clk_pll_state;
+				oscans[cpri_num].sta = ~status.da_clk_pll_state;
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&oscans[cpri_num]), sizeof(SQ_OSCANS));
 #ifdef PPC
 				//对AD的本振状态查询
-				status_read(0, &status);
+				status_read(cpri_num/4, &status);
 				oscans[cpri_num].osc_fre = device_read(cpri_num/4, 0x04, 0);
 #endif
-				oscans[cpri_num].sta = status.ad_clk_pll_state;
+				oscans[cpri_num].sta = ~status.ad_clk_pll_state;
 				memcpy(send_msg + MSG_HEADSIZE + oscans[cpri_num].ie_size, (char *)(&oscans[cpri_num]), sizeof(SQ_OSCANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送本振状态查询响应消息体
 				break;
 			case 305:		//时钟状态查询
 				msg_head.msg_size = MSG_HEADSIZE + rtcans[cpri_num].ie_size;
-							//接口目前还没有提供
+				//默认是失步状态，当设置参考时钟时，再改变它
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rtcans[cpri_num]), sizeof(SQ_RTCANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送时钟状态查询响应消息体
 				break;
 			case 306:		//RRU运行状态查询
 				msg_head.msg_size = MSG_HEADSIZE + runans[cpri_num].ie_size;
-				runans[cpri_num].sta += 0;		//设置RRU运行状态，这里不需要设置，因为在通道建立配置和小区配置时会进行设置它。
+				//设置RRU运行状态，这里不需要设置，因为在通道建立配置和小区配置时会设置它。
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&runans[cpri_num]), sizeof(SQ_RUNANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//RRU运行状态查询响应消息体
 				break;
 			case 307:		//Ir口工作模式查询
 				msg_head.msg_size = MSG_HEADSIZE + irmodeans[cpri_num].ie_size;
-				irmodeans[cpri_num].res += 0;	//Ir口工作模式目前固定为普通模式。
+				irmodeans[cpri_num].res = 1;	//Ir口工作模式目前固定为普通模式。
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&irmodeans[cpri_num]), sizeof(SQ_IRMODEANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//Ir口工作模式查询响应消息体
 				break;
 			case 308:		//初始化校准结果查询
 				msg_head.msg_size = MSG_HEADSIZE + initchkans[cpri_num].ie_size;
-							//5G没有初始化校准，所以应该没有初始化校准结果的查询
+				initchkans[cpri_num].tr_num = 1;
+				initchkans[cpri_num].rec_num = 1;
+#ifdef PPC
+				//对接收发送通道PLL的锁定状态查询
+				status_read(cpri_num/4, &status);
+#endif			
+				if(status.da_clk_pll_state && status.da_work_state)
+					initchkans[cpri_num].trchk_sta = 0;
+				else
+					initchkans[cpri_num].trchk_sta = 1;	
+				if(status.ad_clk_pll_state && status.ad_work_state)
+					initchkans[cpri_num].recchk_sta = 0;
+				else
+					initchkans[cpri_num].recchk_sta = 1;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&initchkans[cpri_num]), sizeof(SQ_INITCHKANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//初始化校准结果查询响应消息体
@@ -633,7 +674,7 @@ int cpri_para_que(const int sk, char *msg, const cpri_num)
 				//FPGA的温度读取，射频通道温度待定
 				status_read(cpri_num/4, &status);
 #endif
-				rrutemans[cpri_num].rfch_num = 0;
+				rrutemans[cpri_num].rfch_num = 1;
 				rrutemans[cpri_num].tem_val = status.fpga_tempatrue;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rrutemans[cpri_num]), sizeof(PQ_RRUTEMANS));
@@ -643,23 +684,19 @@ int cpri_para_que(const int sk, char *msg, const cpri_num)
 				memcpy((char *)(&swrsta[cpri_num]) + 4, (char *)src_addr, sizeof(PQ_SWRSTA) - 4);	//取得查询请求的消息体内容
 				msg_head.msg_size = MSG_HEADSIZE + swrstaans[cpri_num].ie_size;
 				swrstaans[cpri_num].rfch_num = swrsta[cpri_num].rfch_num;
-							//驻波比状态目前不用管
+				swrstaans[cpri_num].swr_val = 15;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&swrstaans[cpri_num]), sizeof(PQ_SWRSTAANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//驻波比状态查询响应消息体
 				break;
 			case 406:		//驻波比门限查询
 				msg_head.msg_size = MSG_HEADSIZE + swrthrans[cpri_num].ie_size;
-				swrthrans[cpri_num].no1_thr += 0;		//设置驻波比一级门限，这里不需要设置，因为在参数配置时已经对它进行了设置。
-				swrthrans[cpri_num].no2_thr += 0;		//设置驻波比二级门限，这里不需要设置，因为在参数配置时已经对它进行了设置。
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&swrthrans[cpri_num]), sizeof(PQ_SWRTHRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//驻波比门限查询响应消息体
 				break;
 			case 407:		//过温门限查询
 				msg_head.msg_size = MSG_HEADSIZE + temthrans[0].ie_size;
-				temthrans[cpri_num].tem_max += 0;		//设置过温上门限，这里不需要设置，因为在参数配置时已经对它进行了设置。
-				temthrans[cpri_num].tem_low += 0;		//设置过温下门限，这里不需要设置，因为在参数配置时已经对它进行了设置。
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&temthrans[cpri_num]), sizeof(PQ_TEMTHRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//过温门限查询响应消息体
@@ -668,7 +705,7 @@ int cpri_para_que(const int sk, char *msg, const cpri_num)
 				memcpy((char *)(&outpower[cpri_num]) + 4, (char *)src_addr, sizeof(PQ_OUTPOWER) - 4);	//取得查询请求的消息体内容
 				msg_head.msg_size = MSG_HEADSIZE + outpowerans[0].ie_size;
 				outpowerans[cpri_num].rfch_num = outpower[cpri_num].rfch_num;
-							//目前只有DA的增益设置，还没有增益的读取
+				//根据小区配置的输出功率来回复
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&outpowerans[cpri_num]), sizeof(PQ_OUTPOWERANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//输出功率查询响应消息体
@@ -676,7 +713,7 @@ int cpri_para_que(const int sk, char *msg, const cpri_num)
 			case 409:		//状态机查询
 				msg_head.msg_size = MSG_HEADSIZE + stamachans[cpri_num].ie_size;
 #ifdef PPC
-				//状态机查询应该是读取cpri状态来的
+				//状态机查询应该就是读取cpri状态
 				cpri_status_read(0, 0, &cpri_status);
 #endif
 				stamachans[cpri_num].state = cpri_status.state;
@@ -772,28 +809,28 @@ int cpri_paracfg_que(const int sk, char *msg, const int cpri_num)
 		{
 			case 11:		//参数配置-系统时间
 				memcpy((char *)(&systimecfg[cpri_num]) + 4, (char *)src_addr, sizeof(PC_SYSTIME) - 4);	//取得参数配置的消息体内容
-				systimecfgans[cpri_num].res = cpri_set_systime(&systimecfg[cpri_num]);		//调用set_systime函数来配置系统时间，成功返回0，失败返回1
 				msg_head.msg_size = MSG_HEADSIZE + systimecfgans[cpri_num].ie_size;
+				systimecfgans[cpri_num].res = cpri_set_systime(&systimecfg[cpri_num]);		//调用set_systime函数来配置系统时间，成功返回0，失败返回1
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&systimecfgans[cpri_num]), sizeof(PC_SYSTIMEANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送配置结果
 				break;
 			case 501:		//参数配置-IQ数据通道配置
 				memcpy((char *)(&iqdatachcfg[cpri_num]) + 4, (char *)src_addr, sizeof(PC_IQDATACH) - 4);	//取得参数配置的消息体内容
-				/************************************
-				IQ数据通道配置，目前不知道怎么配，待定。所以配置结果也没有设置。
-				************************************/
 				msg_head.msg_size = MSG_HEADSIZE + iqdatachcfgans[cpri_num].ie_size;
+				iqdatachcfgans[cpri_num].ray_num = iqdatachcfg[cpri_num].ray_num;
+				iqdatachcfgans[cpri_num].cir_num = iqdatachcfg[cpri_num].cir_num;
+				iqdatachcfgans[cpri_num].ant_num =  iqdatachcfg[cpri_num].ant_num;
+				iqdatachcfgans[cpri_num].res = 0;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&iqdatachcfgans[cpri_num]), sizeof(PC_IQDATACHANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送配置结果
 				break;
 			case 502:		//参数配置-CPU占用率统计周期配置
 				memcpy((char *)(&ratecyccfg[cpri_num]) + 4, (char *)src_addr, sizeof(PC_RATECYC) - 4);	//取得参数配置的消息体内容
-				ratecycans[0].rate_cyc = ratecyccfg[cpri_num].rate_cyc;		//这里将配置参数查询中CPU占用率统计周期的查询内容
-				cpri_write_str(&ratecycans[0], 10);					//将CPU占用率统计周期参数写入到RRU的信息记录文件中
-				//CPU占用率统计周期配置，采用ratecycans[0].rate_cyc这个值去设置。
-				new_value.it_interval.tv_sec = ratecycans[0].rate_cyc;
+				msg_head.msg_size = MSG_HEADSIZE + ratecyccfgans[cpri_num].ie_size;
+				//CPU占用率统计周期配置，采用ratecyccfg[0].rate_cyc这个值去设置。
+				new_value.it_interval.tv_sec = ratecyccfg[0].rate_cyc;
 				new_value.it_interval.tv_usec = 0;
 				if(setitimer(ITIMER_REAL, &new_value, NULL) == -1)		//正式设置统计周期，每隔此时间段便计算一次
 				{
@@ -801,81 +838,99 @@ int cpri_paracfg_que(const int sk, char *msg, const int cpri_num)
 					perror(eth_name[cpri_num]);
 					ratecyccfgans[cpri_num].res = 1;
 				}else
+				{
 					ratecyccfgans[cpri_num].res = 0;
-				msg_head.msg_size = MSG_HEADSIZE + ratecyccfgans[cpri_num].ie_size;
+					ratecycans[0].rate_cyc = ratecyccfg[cpri_num].rate_cyc;		//这里将配置参数查询中CPU占用率统计周期的查询内容
+					cpri_write_str(&ratecycans[0], 10);					//将CPU占用率统计周期参数写入到RRU的信息记录文件中
+				}
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&ratecyccfgans[cpri_num]), sizeof(PC_RATECYCANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送配置结果
 				break;
 			case 503:		//参数配置-驻波比门限配置
 				memcpy((char *)(&swrthrcfg[cpri_num]) + 4, (char *)src_addr, sizeof(PC_SWRTHR) - 4);	//取得参数配置的消息体内容
+				msg_head.msg_size = MSG_HEADSIZE + swrthrcfgans[cpri_num].ie_size;
 				swrthrans[cpri_num].no1_thr = swrthrcfg[cpri_num].no1_thr;		//这里将配置参数查询中驻波比门限的查询内容
 				swrthrans[cpri_num].no2_thr = swrthrcfg[cpri_num].no2_thr;		//这里将配置参数查询中驻波比门限的查询内容
-				/************************************
-				驻波比门限配置，目前暂时不用管
-				************************************/
 				swrthrcfgans[cpri_num].res = 0;		//设置参数配置成功
-				msg_head.msg_size = MSG_HEADSIZE + swrthrcfgans[cpri_num].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&swrthrcfgans[cpri_num]), sizeof(PC_SWRTHRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送配置结果
 				break;
 			case 504:		//参数配置-Ir口工作模式配置
 				memcpy((char *)(&irmodecfg[cpri_num]) + 4, (char *)src_addr, sizeof(CL_IRMODECFG) - 4);	//取得参数配置的消息体内容
+				msg_head.msg_size = MSG_HEADSIZE + irmodecfgans[cpri_num].ie_size;
 				irmodeans[cpri_num].res = irmodecfg[cpri_num].ir_mode;		//这里将设置状态查询中ir口工作模式查询的内容
 				/************************************
-				Ir口工作模式配置，目前固定配置无普通模式
+				Ir口工作模式配置，目前固定配置为普通模式
 				************************************/
 				irmodecfgans[cpri_num].res = 0;		//设置参数配置成功
-				msg_head.msg_size = MSG_HEADSIZE + irmodecfgans[cpri_num].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&irmodecfgans[cpri_num]), sizeof(CL_IRMODECFGANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送配置结果
 				break;
 			case 505:		//参数配置-过温门限配置
 				memcpy((char *)(&temthrcfg[cpri_num]) + 4, (char *)src_addr, sizeof(PC_TEMTHR) - 4);	//取得参数配置的消息体内容
+				msg_head.msg_size = MSG_HEADSIZE + temthrcfgans[cpri_num].ie_size;
 				temthrans[cpri_num].tem_max = temthrcfg[cpri_num].tem_max;		//这里将设置参数查询中过温门限查询的内容
 				temthrans[cpri_num].tem_low = temthrcfg[cpri_num].tem_low;		//这里将设置参数查询中过温门限查询的内容
-				/************************************
-				过温门限配置，这里也不知道怎么配置
-				************************************/
 				temthrcfgans[cpri_num].tem_type = temthrcfg[cpri_num].tem_type;
 				temthrcfgans[cpri_num].res = 0;		//设置参数配置成功
-				msg_head.msg_size = MSG_HEADSIZE + temthrcfgans[cpri_num].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&temthrcfgans[cpri_num]), sizeof(PC_TEMTHRANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送配置结果
 				break;
 			case 302:		//参数配置-射频通道状态配置
-				memcpy((char *)(&rfchans[*(char *)src_addr - 1]) + 4, (char *)src_addr, sizeof(SQ_RFCHANS) - 4);	//取得参数配置的消息体内容
+				memcpy((char *)(&rfchans[cpri_num]) + 4, (char *)src_addr, sizeof(SQ_RFCHANS) - 4);	//取得参数配置的消息体内容
+				msg_head.msg_size = MSG_HEADSIZE + rfchstacfgans[cpri_num].ie_size;
 				//射频通道状态配置
-				if(rfchans[*(char *)src_addr - 1].dl_sta != 0)	//射频通道使能
+				if(rfchans[cpri_num].dl_sta != 0)	//下行使能
 				{	
 #ifdef PPC
-					da_recall_mode_set((*(char *)src_addr-1)/2, (*(char *)src_addr-1)%2, 0);
-					rfchstacfgans[cpri_num].res = da_recall_enable((*(char *)src_addr-1)/2, (*(char *)src_addr-1)%2, 1);
+					//da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 0);
+					rfchstacfgans[cpri_num].res = da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 1);
+					if(rfchstacfgans[cpri_num].res == RET_OK)
+						rfchstacfgans[cpri_num].res = 0;
+					else
+						rfchstacfgans[cpri_num].res = 1;
 #endif
-				}else											//射频通道失能
+				}else											//下行通道失能
 				{
 #ifdef PPC
-					da_recall_mode_set((*(char *)src_addr-1)/2, (*(char *)src_addr-1)%2, 0);
-					rfchstacfgans[cpri_num].res = da_recall_enable((*(char *)src_addr-1)/2, (*(char *)src_addr-1)%2, 0);
+					//da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 0);
+					rfchstacfgans[cpri_num].res = da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 0);
+					if(rfchstacfgans[cpri_num].res == RET_OK)
+						rfchstacfgans[cpri_num].res = 0;
+					else
+						rfchstacfgans[cpri_num].res = 1;
 #endif
 				}
-				rfchstacfgans[cpri_num].ch_num = *(char *)src_addr;
-				msg_head.msg_size = MSG_HEADSIZE + rfchstacfgans[cpri_num].ie_size;
+				if(rfchans[cpri_num].ul_sta != 0)	//上行使能
+				{	
+#ifdef PPC
+					if(ad_enable(cpri_num/4, cpri_num%4+1, 1) == RET_ERR)
+						rfchstacfgans[cpri_num].res = 1;
+#endif
+				}else											//上行通道失能
+				{
+#ifdef PPC
+					if(ad_enable(cpri_num/4, cpri_num%4+1, 0) == RET_ERR)
+						rfchstacfgans[cpri_num].res = 1;
+#endif
+				}
+				rfchstacfgans[cpri_num].ch_num = rfchans[cpri_num].ch_num;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&rfchstacfgans[cpri_num]), sizeof(PC_RFCHSTAANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送配置结果
 				break;
 			case 507:		//参数配置-天线配置
 				memcpy((char *)(&antcfg[cpri_num]) + 4, (char *)src_addr, sizeof(PC_ANTCFG) - 4);	//取得参数配置的消息体内容
+				msg_head.msg_size = MSG_HEADSIZE + antcfgans[0].ie_size;
 				/************************************
 				天线配置，这里也不知道怎么去配
 				************************************/
 				antcfgans[cpri_num].ant_num = antcfg[cpri_num].ant_num;
 				antcfgans[cpri_num].res = 0;		//设置参数配置成功
-				msg_head.msg_size = MSG_HEADSIZE + antcfgans[0].ie_size;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&antcfgans[cpri_num]), sizeof(PC_ANTCFGANS));
 				send(sk, send_msg, msg_head.msg_size, 0);	//发送配置结果
@@ -924,21 +979,30 @@ int cpri_delaymse_que(const int sk, char *msg, const int cpri_num)
 		switch(ie_id)
 		{
 			case 901:
+				memcpy((char *)(&cycdelaycfg[cpri_num]) + 4, (char *)src_addr, sizeof(DM_CYCDELAY) - 4);
 				/************************************
-				时延测量，先缓一缓
+				时延测量，其中一些测量参数是PC端发送给我的
 				************************************/
 				msg_head.msg_id = CPRI_DELAYMSE_ANS;
 				msg_head.msg_size = MSG_HEADSIZE + raydelayans[cpri_num].ie_size;
+				raydelayans[cpri_num].ray_num = cycdelaycfg[cpri_num].ray_num;
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&raydelayans[cpri_num]), sizeof(DM_RAYDELAYANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 921:
-				/************************************
-				时延配置，先缓一缓
-				************************************/
+				memcpy((char *)(&delaycfg[cpri_num]) + 4, (char *)src_addr, sizeof(DM_DELAYCFG) - 4);
 				msg_head.msg_id = CPRI_DELAYCFG_ANS;
 				msg_head.msg_size = MSG_HEADSIZE + delaycfgans[cpri_num].ie_size;
+				delaycfgans[cpri_num].ray_num = delaycfg[cpri_num].ray_num;
+#ifdef PPC
+				if(upstream_delay_ctrl(cpri_num/4, 1, &delaycfg[cpri_num].ul_cal) == RET_OK)	//设置fpga的上行时延
+					delaycfgans[cpri_num].res = 0;
+				else
+					delaycfgans[cpri_num].res = 1;
+				if(downstream_delay_ctrl(cpri_num/4, 1, &delaycfg[cpri_num].dl_cal) == RET_ERR)	//设置fpga的下行时延
+					delaycfgans[cpri_num].res = 1;
+#endif
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&delaycfgans[cpri_num]), sizeof(DM_DELAYCFGANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
@@ -1084,6 +1148,8 @@ int cpri_logup_que(const int sk, char *msg, const int cpri_num)
 	if(ie_id == 1201 && count == size)
 	{
 		memcpy((char *)(&upque[cpri_num]) + 4, (char *)src_addr, sizeof(LOG_UPQUE) - 4);	//取得参数配置的消息体内容
+		msg_head.msg_id = CPRI_LOGUP_ANS;
+		msg_head.msg_size = MSG_HEADSIZE + upans[cpri_num].ie_size;
 		//日志上传请求，这里判断日志是否存在
 		upans[cpri_num].log_type = upque[cpri_num].log_type;
 		if(upans[cpri_num].log_type == 0)
@@ -1094,11 +1160,10 @@ int cpri_logup_que(const int sk, char *msg, const int cpri_num)
 			upans[cpri_num].res = access("sys.txt", F_OK);
 		if(upans[cpri_num].res == -1)
 			upans[cpri_num].res = 1;
-		msg_head.msg_id = CPRI_LOGUP_ANS;
-		msg_head.msg_size = MSG_HEADSIZE + upans[cpri_num].ie_size;
 		memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 		memcpy(send_msg + MSG_HEADSIZE, (char *)(&upans[cpri_num]), sizeof(LOG_UPANS));
 		send(sk, send_msg, msg_head.msg_size, 0);
+		
 		if(upans[cpri_num].res == 0)	//如果日志文件存在，开始上传
 		{
 			upres[cpri_num].log_type = upque[cpri_num].log_type;
@@ -1227,9 +1292,63 @@ int cpri_lte_cfg(const int sk, char *msg, const int cpri_num)
 		switch(ie_id)
 		{
 			case 1501:
-				/*******************************
-				先空置
-				*******************************/
+				memcpy((char *)(&pltcfg[cpri_num]) + 4, (char *)src_addr, sizeof(PLT_CFG) - 4);	//取得参数配置的消息体内容
+				msg_head.msg_id = CPRI_LTE_ANS;
+				msg_head.msg_size = MSG_HEADSIZE + pltcfgans[cpri_num].ie_size;
+				pltcfgans[cpri_num].plot_locflag = pltcfg[cpri_num].plot_locflag;
+				if(pltcfg[cpri_num].plot_cfgflag == 0)		//建立
+				{
+#ifdef PPC			//设置da为正常模式，打开da/ad通道使能
+					da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 0);
+					if(da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 1) == RET_OK)
+						pltcfgans[cpri_num].res = 0;
+					else
+						pltcfgans[cpri_num].res = 1;
+					if(ad_enable(cpri_num/4, cpri_num%4+1, 1) == RET_ERR)
+						pltcfgans[cpri_num].res = 1;
+
+					device_write(0, cpri_num+8, 0, (pltcfg[cpri_num].plot_power-10)*2);
+					outpowerans[cpri_num].value = pltcfg[cpri_num].plot_power;
+#endif
+					if(pltcfgans[cpri_num].res == 0)
+						runans[cpri_num].sta = 2;
+				}
+				else if(pltcfg[cpri_num].plot_cfgflag == 1)	//重配
+				{
+#ifdef PPC
+					da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 0);
+					if(da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 1) == RET_OK)
+						pltcfgans[cpri_num].res = 0;
+					else
+						pltcfgans[cpri_num].res = 1;
+					if(ad_enable(cpri_num/4, cpri_num%4+1, 1) == RET_ERR)
+						pltcfgans[cpri_num].res = 1;
+
+					device_write(0, cpri_num+8, 0, (pltcfg[cpri_num].plot_power-10)*2);
+					outpowerans[cpri_num].value = pltcfg[cpri_num].plot_power;
+#endif
+					if(pltcfgans[cpri_num].res == 0)
+						runans[cpri_num].sta = 2;
+				}
+				else										//删除
+				{
+#ifdef PPC
+					if(da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 0) == RET_OK)
+						pltcfgans[cpri_num].res = 0;
+					else
+						pltcfgans[cpri_num].res = 1;
+					if(ad_enable(cpri_num/4, cpri_num%4+1, 0) == RET_ERR)
+						pltcfgans[cpri_num].res = 1;
+
+					device_write(0, cpri_num+8, 0, (pltcfg[cpri_num].plot_power-10)*2);
+					outpowerans[cpri_num].value = pltcfg[cpri_num].plot_power;
+#endif
+					if(pltcfgans[cpri_num].res == 0)
+						runans[cpri_num].sta = 0;
+				}
+				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&pltcfgans[cpri_num]), sizeof(PLT_CFGANS));
+				send(sk, send_msg, msg_head.msg_size, 0);
 				break;
 			case 1502:
 				/*******************************

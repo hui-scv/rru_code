@@ -42,6 +42,8 @@ CL_RRUCAPA rrucapa[] =
 	{
 	.ie_id = 3,
 	.ie_size = 35,
+	.rru_dl_max = 33333,
+	.rru_ul_max = 33333,
 	}
 };
 
@@ -261,6 +263,7 @@ SQ_RTCANS rtcans[] =
 	{
 	.ie_id = 355,
 	.ie_size = 8,
+	.sta = 1,
 	}
 };
 
@@ -413,6 +416,8 @@ PQ_SWRTHRANS swrthrans[] =
 	{
 	.ie_id = 455,
 	.ie_size = 12,
+	.no1_thr = 10,
+	.no2_thr = 10,
 	}
 };
 
@@ -599,6 +604,9 @@ DM_RAYDELAYANS raydelayans[] =
 	{
 	.ie_id = 911,
 	.ie_size = 29,
+	.dl_delay = 0,
+	.ul_delay = 0,
+	.n = 1,
 	}
 };
 
