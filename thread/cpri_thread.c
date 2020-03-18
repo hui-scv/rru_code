@@ -28,8 +28,6 @@
 
 //定义告警标志位
 unsigned int cpri_ala_flag[8] = {0};
-//定义cpri状态结构体
-CPRI_STATUS_S cpri_status[8];
 //定义8个网口的设备名
 char *eth_name[8] = {"eth0", "eth1", "eth2", "eth3", "eth4", "eth5", "eth6", "eth7"};
 
@@ -58,9 +56,10 @@ void *cpri_thread(void *cpri_n)
 	//定义消息头
 	RRU_HEAD cpri_que;
 	BBU_HEAD cpri_ans;
-	MSG_HEAD msg_head;
 	//定义socket编程使用的socket地址相关信息结构体
 	struct sockaddr_in cpri_addr;
+	//定义cpri状态结构体
+	CPRI_STATUS_S cpri_status;
 
 	//fd_set rdfds;
 	//struct timeval tv;
@@ -71,7 +70,6 @@ void *cpri_thread(void *cpri_n)
 	memset(&cpri_addr, 0, sizeof(struct sockaddr_in));
 	memset(&cpri_que, 0, sizeof(RRU_HEAD));
 	memset(&cpri_ans, 0, sizeof(BBU_HEAD));
-	memset(&msg_head, 0, sizeof(MSG_HEAD));
 	memset(msg, 0, sizeof(char) * 512);
 
 	//指定socket套接字所采用的协议簇是IPv4
@@ -84,13 +82,13 @@ void *cpri_thread(void *cpri_n)
 CHLINK:
 #ifdef PPC
 	/*****************
-	等待F态，这里是揣测的state为0x05时，F态就绪
+	等待F态，这里是揣测的state为0xF时，F态就绪
 	*****************/
-	cpri_status[cpri_num].state = 5;
+	cpri_status.state = 0xF;
 	do{
-		cpri_status_read(0, 0, &cpri_status[cpri_num]);
+		cpri_status_read(0, 0, &cpri_status);
 		sleep(3);
-	}while(cpri_status[cpri_num].state != 5);
+	}while((((short)cpri_status.warning_report >> 0x01)&0xF) != 0xF);
 #endif
 
 	//RRU向BBU发送UDP广播，获取IP地址并设置
@@ -101,7 +99,7 @@ CHLINK:
 	sk = cpri_tcpcon(cpri_ans, &cpri_addr, cpri_num);
 
 	//RRU向BBU发起通信通道链路建立请求,完成RRU通信通道的配置以及返回配置响应
-	cpri_comch_init(sk, msg, &msg_head, cpri_ans, cpri_num);
+	cpri_comch_init(sk, msg, cpri_ans, cpri_num);
 
 	/*****************
 	时延测量由BBU发起
@@ -314,7 +312,7 @@ int cpri_creatsk(const int type, const int cpri_num)
  */
 int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr, const int cpri_num)
 {
-	char *device = eth_name[cpri_num], ip[20];
+	char *device = eth_name[cpri_num], ip[20], buf[16];
 	int ret = -1, len = 0, iOp = 1, sk = -1;
 	ssize_t ssize = -1;
 	struct ifreq ifreq;
@@ -324,10 +322,12 @@ int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cp
 	strcpy(ifreq.ifr_name, device);
 	
 	len = sizeof(struct sockaddr);
-	/*****************
-	获取rru的id
-	*****************/
-	cpri_que->rru_id = cpri_num;
+	/*获取rru的id和bbu侧的光口号*/
+#ifdef PPC
+	vss_read(cpri_num/4, cpri_num%4, 0, buf);
+#endif
+	cpri_que->rru_id = buf[2];
+	cpri_que->bbu_num = buf[1];
 
 	//设置socket要通信的ip地址是255.255.255.255,
 	//创建使用UDP协议的套接字，这样就表明采用UDP协议并全网广播数据

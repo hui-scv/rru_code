@@ -156,6 +156,7 @@ CL_CHLINKANS chlinkans[] =
 	{
 	.ie_id = 21,
 	.ie_size = 8,
+	.res = 1,
 	}
 };
 

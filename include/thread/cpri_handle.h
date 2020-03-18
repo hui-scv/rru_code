@@ -5,7 +5,7 @@
 
 int cpri_comch_req(const int sk, const BBU_HEAD cpri_ans, const int cpri_num);
 int cpri_comch_cfg(const int sk, char *msg, const int cpri_num);
-void cpri_comch_init(const int sk, char *msg, MSG_HEAD *msg_head, const BBU_HEAD cpri_ans, const int cpri_num);
+void cpri_comch_init(const int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_num);
 int cpri_verdown_que(const int sk, char *msg, const int cpri_num);
 int cpri_veract_ind(const int sk, char *msg, const int cpri_num);
 int cpri_state_que(const int sk, char *msg, const int cpri_num);
