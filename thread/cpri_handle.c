@@ -639,7 +639,7 @@ void cpri_get_systime(CL_SYSTIME *cl_systime)
 
 	//对系统时间结构体进行赋值
 	cl_systime->year = area.tm_year + 1900;
-	cl_systime->month = area.tm_mon;
+	cl_systime->month = area.tm_mon + 1;
 	cl_systime->day = area.tm_mday;
 	cl_systime->hour = area.tm_hour;
 	cl_systime->min = area.tm_min;
@@ -1123,7 +1123,7 @@ void cpri_get_ala(AR_ALAQUE *ala_que, AR_ALAREP *ala_rep, const int cpri_num)
 	}
 
 	//获取时间戳，包括年月日时分秒
-	sprintf(ala_rep->time_stamp, "%d%02d%02d%02d%02d%02d", area.tm_year + 1900, area.tm_mon, area.tm_mday, area.tm_hour, area.tm_min, area.tm_sec);
+	sprintf(ala_rep->time_stamp, "%d%02d%02d%02d%02d%02d", area.tm_year + 1900, area.tm_mon + 1, area.tm_mday, area.tm_hour, area.tm_min, area.tm_sec);
 	ala_rep->ala_code = ala_que->ala_code;
 	ala_rep->ala_subcode = ala_que->ala_subcode;
 	//ala_rep->addi_data = "";

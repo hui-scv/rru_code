@@ -17,6 +17,9 @@
 #include <linux/tcp.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "struct.h"
 #include "usr.h"
@@ -40,7 +43,7 @@ void get_stamp(char *time_stamp)
 	localtime_r(&t, &area);
 
 	//获取时间戳，包括年月日时分秒
-	sprintf(time_stamp, "%d.%02d.%02d_%02d:%02d:%02d-", area.tm_year + 1900, area.tm_mon, area.tm_mday, area.tm_hour, area.tm_min, area.tm_sec);
+	sprintf(time_stamp, "%d.%02d.%02d_%02d:%02d:%02d-", area.tm_year + 1900, area.tm_mon + 1, area.tm_mday, area.tm_hour, area.tm_min, area.tm_sec);
 }
 
 /*
@@ -84,7 +87,7 @@ void idle_handle(void)
 				//获取系统时间戳
 				get_stamp(time_stamp);
 				sprintf(erro_msg, "%sRRU输入电源告警\n", time_stamp);
-				ret = write(fd, erro_msg, sizeof(erro_msg));
+				ret = write(fd, erro_msg, strlen(erro_msg));
 				if(ret < 0)
 					perror(erro_msg);
 			}else

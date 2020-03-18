@@ -14,7 +14,7 @@ LIBDIR :=-L/home/huizl/work_path/rru_obj/usr/lib
 CPPFLAGS :=$(INCLUDEDIR)
 
 objs := main.o init.o thread/rru_thread.o thread/main_thread.o thread/main_handle.o 
-objs += thread/cpri_thread.o thread/cpri_handle.o 
+objs += thread/cpri_thread.o thread/cpri_handle.o thread/idle_thread.o
 objs += interface/ftp/ftp_client.o 
 #objs += 5784api/lib5784api.a
 
