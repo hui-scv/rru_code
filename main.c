@@ -11,6 +11,8 @@
 #include "include_pc/init_struct_pc.h"
 #include "init_struct.h"
 #include "thread/rru_thread.h"
+#include "thread/idle_thread.h"
+
 
 /*
  * 函数名：void main()
@@ -41,7 +43,7 @@ int main()
 		printf("create cpri1_thread error!\n");
 		return;
 	}
-	
+#if 0
 	//创建cpri接口2任务线程
 	ret = pthread_create(&thread_id[2], NULL, (void *)cpri_thread, (void *)&arg[1]);
 	if(ret != 0)
@@ -105,6 +107,7 @@ int main()
 		printf("create ptran_thread error!\n");
 		return;
 	}
-
-	pthread_join(thread_id[9], NULL);
+#endif
+	//空闲任务处理函数，用于记录告警信息和设置告警标志位
+	idle_handle();
 }

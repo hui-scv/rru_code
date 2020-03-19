@@ -33,7 +33,7 @@ extern char *eth_name[8];
  * output：
  *		ret：发送数据的大小
  */
-int cpri_comch_req(const int sk, const BBU_HEAD cpri_ans, const int cpri_num)
+int cpri_comch_req(int sk, const BBU_HEAD cpri_ans, const int cpri_num)
 {
 	char send_msg[512];
 	int count = 0, ret = 0;
@@ -91,7 +91,7 @@ int cpri_comch_req(const int sk, const BBU_HEAD cpri_ans, const int cpri_num)
  *		失败：-1；
  *		成功：0
  */
-int cpri_comch_cfg(const int sk, char *msg, const int cpri_num)
+int cpri_comch_cfg(int sk, char *msg, const int cpri_num)
 {
 	char *src_addr, send_msg[512];
 	unsigned short ie_id, i;
@@ -197,7 +197,7 @@ int cpri_comch_cfg(const int sk, char *msg, const int cpri_num)
  *		5、cpri_num，cpri的接口号。
  * output：void
  */
-void cpri_comch_init(const int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_num)
+void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_num)
 {
 	char send_msg[512], server_file[220];
 	int ret = 0, rec_num = 0;
@@ -229,7 +229,7 @@ void cpri_comch_init(const int sk, char *msg, const BBU_HEAD cpri_ans, const int
 			memset(msg, 0, sizeof(char) * 512);
 			cpri_comch_req(sk, cpri_ans, cpri_num);
 			continue;
- 		}else if(FD_ISSET(sk, &rdfds))
+ 		}else
 			rec_num += recv(sk, msg + rec_num, 512, 0);		//等到应答后，进行接收数据。数据有可能不是1包发完，所以需要进行+=，累积之前接收的数据
 
 		//当接收的数据总大小和返回的消息头中指明数据的大小相等之后，说明数据接收完毕
@@ -247,16 +247,6 @@ void cpri_comch_init(const int sk, char *msg, const BBU_HEAD cpri_ans, const int
 				//返回配置响应
 				if(ret >= 0)
 				{
-					//发送配置成功的响应，并退出循环
-					/*msg_head->msg_id = CPRI_CHLINK_ANS;		//设置消息头类型
-					msg_head->msg_size = MSG_HEADSIZE + chlinkans[cpri_num].ie_size;	//设置消息体的总大小
-					chlinkans[cpri_num].res = 0;		//设置通道建立配置应答的结果为成功
-					memcpy(send_msg, (char *)msg_head, MSG_HEADSIZE);
-					memcpy(send_msg + MSG_HEADSIZE, (char *)(&chlinkans[cpri_num]), sizeof(CL_CHLINKANS));
-					printf("ret1 : %d\n", ret);
-					ret = send(sk, send_msg, msg_head->msg_size, 0);	//发送通道建立配置应答
-					printf("ret2 : %d\n", ret);*/
-
 					if(softchk[cpri_num].res != 0)	//得出版本不一致，需要更新软件
 					{
 						strcat(server_file, softchk[cpri_num].file_path);
@@ -330,7 +320,7 @@ void cpri_comch_init(const int sk, char *msg, const BBU_HEAD cpri_ans, const int
  * 		1、软件版本不一致，需要下载；
  * 		-1、接收到的消息体有误。
  */
-int cpri_verdown_que(const int sk, char *msg, const int cpri_num)
+int cpri_verdown_que(int sk, char *msg, const int cpri_num)
 {
 	char *src_addr, send_msg[512], server_file[220];
 	unsigned short ie_id;
@@ -408,7 +398,7 @@ int cpri_verdown_que(const int sk, char *msg, const int cpri_num)
  * 		0、进行相应的激活操作；
  * 		-1、接收到的消息体有误。
  */
-int cpri_veract_ind(const int sk, char *msg, const int cpri_num)
+int cpri_veract_ind(int sk, char *msg, const int cpri_num)
 {
 	char *src_addr, send_msg[512];
 	unsigned short ie_id;
@@ -458,7 +448,7 @@ int cpri_veract_ind(const int sk, char *msg, const int cpri_num)
  * 		0、进行相应的状态查询操作；
  * 		-1、接收到的消息体有误。
  */
-int cpri_state_que(const int sk, char *msg, const int cpri_num)
+int cpri_state_que(int sk, char *msg, const int cpri_num)
 {
 	char *src_addr, send_msg[512];
 	unsigned short ie_id, ch, i;
@@ -658,7 +648,7 @@ void cpri_get_systime(CL_SYSTIME *cl_systime)
  * 		0、进行相应的参数查询操作；
  * 		-1、接收到的消息体有误。
  */
-int cpri_para_que(const int sk, char *msg, const cpri_num)
+int cpri_para_que(int sk, char *msg, const cpri_num)
 {
 	char *src_addr, send_msg[512];
 	unsigned short ie_id, i;
@@ -785,7 +775,7 @@ int cpri_para_que(const int sk, char *msg, const cpri_num)
  * 		成功：0
  * 		失败：1
  */
-int cpri_set_systime(const PC_SYSTIME *cl_systime)
+int cpri_set_systime(PC_SYSTIME *cl_systime)
 {
 	struct timeval tv;
 	struct tm area;
@@ -827,7 +817,7 @@ int cpri_set_systime(const PC_SYSTIME *cl_systime)
  * 		0、进行相应的参数查询操作；
  * 		-1、接收到的消息体有误。
  */
-int cpri_paracfg_que(const int sk, char *msg, const int cpri_num)
+int cpri_paracfg_que(int sk, char *msg, const int cpri_num)
 {
 	char *src_addr, send_msg[512];
 	unsigned short ie_id, i;
@@ -1009,7 +999,7 @@ int cpri_paracfg_que(const int sk, char *msg, const int cpri_num)
  * 		0、进行相应的参数查询操作；
  * 		-1、接收到的消息体有误。
  */
-int cpri_delaymse_que(const int sk, char *msg, const int cpri_num)
+int cpri_delaymse_que(int sk, char *msg, const int cpri_num)
 {
 	char *src_addr, send_msg[512];
 	unsigned short ie_id, i;
@@ -1141,7 +1131,7 @@ void cpri_get_ala(AR_ALAQUE *ala_que, AR_ALAREP *ala_rep, const int cpri_num)
  * 		0、进行相应的参数查询操作；
  * 		-1、接收到的消息体有误。
  */
-int cpri_ala_que(const int sk, char *msg, const int cpri_num)
+int cpri_ala_que(int sk, char *msg, const int cpri_num)
 {
 	char *src_addr, send_msg[512];
 	unsigned short ie_id;
@@ -1185,9 +1175,9 @@ int cpri_ala_que(const int sk, char *msg, const int cpri_num)
  * 		0、进行相应的参数查询操作；
  * 		-1、接收到的消息体有误。
  */
-int cpri_logup_que(const int sk, char *msg, const int cpri_num)
+int cpri_logup_que(int sk, char *msg, const int cpri_num)
 {
-	char *src_addr, send_msg[512], server_file[220];
+	char *src_addr, send_msg[512], server_file[220], err_file[20];
 	unsigned short ie_id;
 	int size = 0, ret = 0, count;
 	MSG_HEAD msg_head;
@@ -1207,8 +1197,9 @@ int cpri_logup_que(const int sk, char *msg, const int cpri_num)
 		msg_head.msg_size = MSG_HEADSIZE + upans[cpri_num].ie_size;
 		//日志上传请求，这里判断日志是否存在
 		upans[cpri_num].log_type = upque[cpri_num].log_type;
+		sprintf(err_file, "/cpri%d_error_log", cpri_num);
 		if(upans[cpri_num].log_type == 0)
-			upans[cpri_num].res = access("ala.txt", F_OK);
+			upans[cpri_num].res = access(err_file, F_OK);
 		else if(upque[cpri_num].log_type == 1)
 			upans[cpri_num].res = access("usr.txt", F_OK);
 		else
@@ -1226,7 +1217,7 @@ int cpri_logup_que(const int sk, char *msg, const int cpri_num)
 			strcat(server_file, upque[cpri_num].bbu_path);
 			strcat(server_file, upque[cpri_num].bbu_file);
 			if(upres[cpri_num].log_type == 0)
-				upres[cpri_num].res = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "ala.txt", server_file, 0);
+				upres[cpri_num].res = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, err_file, server_file, 0);
 			else if(upque[cpri_num].log_type == 1)
 				upres[cpri_num].res = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "usr.txt", server_file, 0);
 			else
@@ -1257,7 +1248,7 @@ int cpri_logup_que(const int sk, char *msg, const int cpri_num)
  * 		0、进行相应的参数查询操作；
  * 		-1、接收到的消息体有误。
  */
-int cpri_reset_ind(const int sk, char *msg, const int cpri_num)
+int cpri_reset_ind(int sk, char *msg, const int cpri_num)
 {
 	char *src_addr, send_msg[512];
 	unsigned short ie_id;

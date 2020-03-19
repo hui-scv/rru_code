@@ -30,12 +30,15 @@
 unsigned int cpri_ala_flag[8] = {0};
 //定义8个网口的设备名
 char *eth_name[8] = {"eth0", "eth1", "eth2", "eth3", "eth4", "eth5", "eth6", "eth7"};
+//定义8个网口的套接字
+int sock[8] = {-1};
+BBU_HEAD cprians[8];
 
 int cpri_creatsk(const int type, const int cpri_num);
-int cpri_handle(char *msg, const int acq, int *num, const int cpri_num);
+int cpri_handle(char *msg, int sk, int *num, const int cpri_num);
 int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr, const int cpri_num);
 int cpri_tcpcon(const BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr, const int cpri_num);
-int rec_timeout(const int sk, const int sec);
+int rec_timeout(int sk, const int sec);
 
 
 
@@ -51,7 +54,7 @@ void *cpri_thread(void *cpri_n)
 {
 	unsigned short head, ie_id, ie_size;
 	char *msg;
-	int sk = -1, ret = 0, rec_num = 0, num = 0, cpri_num = 0;
+	int ret = 0, rec_num = 0, num = 0, cpri_num = 0;
 
 	//定义消息头
 	RRU_HEAD cpri_que;
@@ -61,17 +64,15 @@ void *cpri_thread(void *cpri_n)
 	//定义cpri状态结构体
 	CPRI_STATUS_S cpri_status;
 
-	//fd_set rdfds;
-	//struct timeval tv;
-
 	//为消息指针分配内存空间
 	msg = (char *)malloc(sizeof(char) * 512);
+CHLINK:
 	//将各种结构体清零
 	memset(&cpri_addr, 0, sizeof(struct sockaddr_in));
 	memset(&cpri_que, 0, sizeof(RRU_HEAD));
 	memset(&cpri_ans, 0, sizeof(BBU_HEAD));
 	memset(msg, 0, sizeof(char) * 512);
-
+	
 	//指定socket套接字所采用的协议簇是IPv4
 	cpri_addr.sin_family = AF_INET;
 	//指定服务器端口号为33333
@@ -79,7 +80,6 @@ void *cpri_thread(void *cpri_n)
 	//获取当前cpri的通道号
 	cpri_num = *(int *)cpri_n;
 
-CHLINK:
 #ifdef PPC
 	/*****************
 	等待F态，这里是揣测的state为0xF时，F态就绪
@@ -93,44 +93,30 @@ CHLINK:
 
 	//RRU向BBU发送UDP广播，获取IP地址并设置
 	cpritobbu_req(&cpri_que, &cpri_ans, &cpri_addr, cpri_num);
+	memcpy(&cprians[cpri_num], &cpri_ans, sizeof(BBU_HEAD));
 
 	//RRU向BBU发起TCP链接请求并完成链接
 	cpri_addr.sin_port = htons(30000);
-	sk = cpri_tcpcon(cpri_ans, &cpri_addr, cpri_num);
+	sock[cpri_num] = cpri_tcpcon(cpri_ans, &cpri_addr, cpri_num);
 
 	//RRU向BBU发起通信通道链路建立请求,完成RRU通信通道的配置以及返回配置响应
-	cpri_comch_init(sk, msg, cpri_ans, cpri_num);
+	cpri_comch_init(sock[cpri_num], msg, cpri_ans, cpri_num);
 
-	/*****************
-	时延测量由BBU发起
-	*****************/
 	memset(msg, 0, sizeof(char) * 512);
-
-	//FD_ZERO(&rdfds);	//设置文件描述符的集合，并清除它
-	//FD_SET(sk, &rdfds);	//将sk加入此集合
 
 	while(1)
 	{
 		//接收BBU端发送的请求，等待3s，若没有接收到则超时
-		/*tv.tv_sec = 3;
-		tv.tv_usec = 0;
-		ret = select(sk + 1, &rdfds, NULL, NULL, &tv);	//等待文件描述符集合中文件有数据可读
-		if(ret < 0)
-			perror(eth_name[cpri_num]);
-		else if(ret == 0)
-		{
-			rec_num = 0;
-			memset(msg, 0, sizeof(char) * 512);
- 		}else if(FD_ISSET(sk, &rdfds))		//判断此文件描述符是否有事件发生
-			rec_num += recv(sk, msg + rec_num, 512, 0);*/
-		ret = rec_timeout(sk, 3);
+		ret = rec_timeout(sock[cpri_num], 3);
 		if(ret < 0)
 		{
 			//接收超时
 			rec_num = 0;
 			memset(msg, 0, sizeof(char) * 512);
  		}else
-			rec_num += recv(sk, msg + rec_num, 512, 0);
+ 		{
+			rec_num += recv(sock[cpri_num], msg + rec_num, 512, 0);
+ 		}
 
 		//num用于记录多少次没有接收到心跳包，如果连续3次没有接收到心跳包，则次cpri接口重启
 		num++;
@@ -138,7 +124,7 @@ CHLINK:
 		if(rec_num >= ((MSG_HEAD *)msg)->msg_size && ((MSG_HEAD *)msg)->msg_size != 0)
 		{
 			//进入此函数，将对照不同的信息体类型进入到不同的处理函数中去
-			cpri_handle(msg, sk, &num, cpri_num);
+			cpri_handle(msg, sock[cpri_num], &num, cpri_num);
 			rec_num = 0;
 			memset(msg, 0, sizeof(char) * 512);
 		}
@@ -147,7 +133,7 @@ CHLINK:
 		{
 			//心跳死亡，跳转到重新初始化cpri
 			num = 0;
-			close(sk);
+			close(sock[cpri_num]);
 			goto CHLINK;
 		}
 	}
@@ -167,7 +153,7 @@ CHLINK:
  *		成功：0；
  *		失败：负数。
  */
-int cpri_handle(char *msg, const int sk, int *num, const int cpri_num)
+int cpri_handle(char *msg, int sk, int *num, const int cpri_num)
 {
 	unsigned int msg_id, msg_size;
 	int ret;
@@ -373,11 +359,11 @@ int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cp
 		ssize = recvfrom(sk, cpri_ans, sizeof(BBU_HEAD), 0, (struct sockaddr*)cpri_addr, &len);
 		if(ssize > 0)
 		{
-			//收到应答后，比较rru的mac是否相同。如果不同则说明不是想要收到的应答，然后重新开始请求。
-			printf("cpri%d rru_id: %d\n", cpri_num+1, cpri_ans->rru_id);
-			if(strncmp(cpri_que->rru_mac, cpri_ans->rru_mac, 6) != 0)
+			//收到应答后，比较rru的id是否相同。如果不同则说明不是想要收到的应答，然后重新开始请求。
+			printf("cpri%d rru_id: 0x%x\n", cpri_num+1, cpri_ans->rru_id);
+			if(cpri_que->rru_id != cpri_ans->rru_id)
 			{
-				printf("cpri%d rru_mac error\n", cpri_num+1);
+				printf("cpri%d rru_id error\n", cpri_num+1);
 				sleep(3);
 				continue;
 			}
@@ -465,7 +451,7 @@ int cpri_tcpcon(const BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr, const in
  *		超时：-2，等待接收超时；
  * 		成功：0，在规定时间内，有数据到来。
  */
-int rec_timeout(const int sk, const int sec)
+int rec_timeout(int sk, const int sec)
 {
 	fd_set rdfds;
 	struct timeval tv;
