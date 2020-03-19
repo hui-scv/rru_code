@@ -210,11 +210,10 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 	//cpri发送通信链路建立的消息集合请求
 	cpri_comch_req(sk, cpri_ans, cpri_num);
 
-	FD_ZERO(&rdfds);
-	FD_SET(sk, &rdfds);
-
 	while(1)
 	{
+		FD_ZERO(&rdfds);		//这个必须写到这里，重复调用select需要重新设置检测
+		FD_SET(sk, &rdfds);		//的文件描述符的集合
 		//接收BBU返回的通道建立配置信息，等待10s，若没有接收到则超时
 		tv.tv_sec = 10;
 		tv.tv_usec = 0;
@@ -238,12 +237,9 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 			//然后再判断是否是通道建立配置消息体
 			if(((MSG_HEAD *)msg)->msg_id == CPRI_CHLINK_CFG)
 			{
-				printf("ret\n");
 				memcpy((char *)&msg_head, (char *)msg, MSG_HEADSIZE);
-				printf("scv\n");
 				//进行通信通道建立配置处理
 				ret = cpri_comch_cfg(sk, msg, cpri_num);
-				printf("ret0\n");
 				//返回配置响应
 				if(ret >= 0)
 				{

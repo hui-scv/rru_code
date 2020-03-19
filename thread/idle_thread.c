@@ -66,7 +66,7 @@ static send_err(int ala_code, int ala_subcode, int ala_flag, char *stamp, char *
 	memcpy(alarep[cpri_num].time_stamp, stamp, 20);
 	memcpy(alarep[cpri_num].addi_data, err_msg, strlen(err_msg)-1);
 	
-	msg_head.msg_id = CPRI_ALA_ANS;
+	msg_head.msg_id = CPRI_ALAREP_QUE;
 	msg_head.msg_size = MSG_HEADSIZE + alarep[cpri_num].ie_size;
 	msg_head.rru_id = cprians[cpri_num].rru_id;
 	msg_head.bbu_id = cprians[cpri_num].bbu_id;
@@ -93,6 +93,7 @@ void idle_handle(void)
 	STATUS_S status;
 
 	memset(file_name, 0, sizeof(file_name));
+	memset(&status, 0, sizeof(STATUS_S));
 
 	while(1)
 	{
@@ -117,7 +118,7 @@ void idle_handle(void)
 			/* 1、RRU输入电源监控 */
 			if(status.vccin_voltage < 2.8 || status.vccin_voltage > 5.8)
 			{
-				if((cpri_ala_flag[cpri_num] >> 0) & 0x01 == 0)
+				if(((cpri_ala_flag[cpri_num] >> 0) & 0x01) == 0)
 				{
 					cpri_ala_flag[cpri_num] |= (0x00000001 << 0);		//设置故障标志		
 					//获取系统时间戳
@@ -141,7 +142,7 @@ void idle_handle(void)
 			/* 4、电源故障告警 */
 			if(status.vccin_voltage < 2.8 || status.vccin_voltage > 5.8)
 			{
-				if((cpri_ala_flag[cpri_num] >> 3) & 0x01 == 0)
+				if(((cpri_ala_flag[cpri_num] >> 3) & 0x01) == 0)
 				{
 					cpri_ala_flag[cpri_num] |= (0x00000001 << 3);		//设置故障标志		
 					//获取系统时间戳
@@ -165,7 +166,7 @@ void idle_handle(void)
 			/* 5、功放过温告警 */
 			if(status.fpga_tempatrue < temthrans[cpri_num].tem_low || status.fpga_tempatrue > temthrans[cpri_num].tem_max)
 			{
-				if((cpri_ala_flag[cpri_num] >> 4) & 0x01 == 0)
+				if(((cpri_ala_flag[cpri_num] >> 4) & 0x01) == 0)
 				{
 					cpri_ala_flag[cpri_num] |= (0x00000001 << 4);		//设置故障标志		
 					//获取系统时间戳
@@ -189,7 +190,7 @@ void idle_handle(void)
 			/* 6、本振失锁告警 */
 			if(status.ad_clk_pll_state == 0 || status.da_clk_pll_state == 0)
 			{
-				if((cpri_ala_flag[cpri_num] >> 5) & 0x01 == 0)
+				if(((cpri_ala_flag[cpri_num] >> 5) & 0x01) == 0)
 				{
 					cpri_ala_flag[cpri_num] |= (0x00000001 << 5);		//设置故障标志		
 					//获取系统时间戳
@@ -223,7 +224,7 @@ void idle_handle(void)
 			/* 7、上行通道故障告警 */
 			if(status.ad_work_state == 0)
 			{
-				if((cpri_ala_flag[cpri_num] >> 6) & 0x01 == 0)
+				if(((cpri_ala_flag[cpri_num] >> 6) & 0x01) == 0)
 				{
 					cpri_ala_flag[cpri_num] |= (0x00000001 << 6);		//设置故障标志		
 					//获取系统时间戳
@@ -247,7 +248,7 @@ void idle_handle(void)
 			/* 8、下行通道故障告警 */
 			if(status.da_work_state == 0)
 			{
-				if((cpri_ala_flag[cpri_num] >> 7) & 0x01 == 0)
+				if(((cpri_ala_flag[cpri_num] >> 7) & 0x01) == 0)
 				{
 					cpri_ala_flag[cpri_num] |= (0x00000001 << 7);		//设置故障标志		
 					//获取系统时间戳
@@ -271,7 +272,7 @@ void idle_handle(void)
 			/* 16、RRU处理器过载告警 */
 			if(cpurateans[0].cpu_rate > 50)
 			{
-				if((cpri_ala_flag[cpri_num] >> 15) & 0x01 == 0)
+				if(((cpri_ala_flag[cpri_num] >> 15) & 0x01) == 0)
 				{
 					cpri_ala_flag[cpri_num] |= (0x00000001 << 15);		//设置故障标志		
 					//获取系统时间戳
@@ -295,7 +296,7 @@ void idle_handle(void)
 			/* 22、板卡过温告警 */
 			if(status.fpga_tempatrue < temthrans[cpri_num].tem_low || status.fpga_tempatrue > temthrans[cpri_num].tem_max)
 			{
-				if((cpri_ala_flag[cpri_num] >> 21) & 0x01 == 0)
+				if(((cpri_ala_flag[cpri_num] >> 21) & 0x01) == 0)
 				{
 					cpri_ala_flag[cpri_num] |= (0x00000001 << 21);		//设置故障标志		
 					//获取系统时间戳
@@ -319,7 +320,7 @@ void idle_handle(void)
 			/* 23、RRU内部时钟失锁告警 */
 			if(status.sys_clk_pll_state == 0)
 			{
-				if((cpri_ala_flag[cpri_num] >> 22) & 0x01 == 0)
+				if(((cpri_ala_flag[cpri_num] >> 22) & 0x01) == 0)
 				{
 					cpri_ala_flag[cpri_num] |= (0x00000001 << 22);		//设置故障标志		
 					//获取系统时间戳

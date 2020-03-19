@@ -165,7 +165,7 @@ int main_link(void)
 	{
 		printf("bind error!\n");
 		ret = -1;
-		close(sk);
+		shutdown(sk, SHUT_RDWR);
 		return ret;
 	}
 	printf("bind success!\n");
@@ -174,7 +174,7 @@ int main_link(void)
 	{
 		printf("listen error!\n");
 		ret = -1;
-		close(sk);
+		shutdown(sk, SHUT_RDWR);
 		return ret;
 	}
 	printf("listen success!\n");
@@ -195,7 +195,7 @@ int main_accept(int sk)
 	{
 		printf("accept error!\n");
 		ret = -1;
-		close(sk);
+		shutdown(sk, SHUT_RDWR);
 		return ret;
 	}
 	printf("%s %d success connect\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));

@@ -133,7 +133,7 @@ CHLINK:
 		{
 			//心跳死亡，跳转到重新初始化cpri
 			num = 0;
-			close(sock[cpri_num]);
+			shutdown(sock[cpri_num], SHUT_RDWR);
 			goto CHLINK;
 		}
 	}
@@ -246,7 +246,7 @@ int cpri_creatsk(const int type, const int cpri_num)
 		if(ioctl(sk, SIOCGIFADDR, &ifreq) < 0)
 		{
 			perror(device);
-			close(sk);
+			shutdown(sk, SHUT_RDWR);
 			sleep(3);
 			continue;
 		}
@@ -259,11 +259,20 @@ int cpri_creatsk(const int type, const int cpri_num)
 			cpri_client_addr.sin_port = htons(30000);
 		cpri_client_addr.sin_addr.s_addr = inet_addr(ip);
 
+		//使此端口可以在短时间内被多次bind
+		int on = 1;
+		if((setsockopt(sk, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)
+		{
+			perror(device);
+			shutdown(sk, SHUT_RDWR);
+			sleep(3);
+			continue;
+		}
 		//最后使用此网口的ip地址绑定套接字
 		if(bind(sk, (struct sockaddr*)&cpri_client_addr, sizeof(struct sockaddr)) < 0)
 		{
 			perror(device);
-			close(sk);
+			shutdown(sk, SHUT_RDWR);
 			sleep(3);
 			continue;
 		}
@@ -271,7 +280,7 @@ int cpri_creatsk(const int type, const int cpri_num)
 		if(setsockopt(sk, SOL_SOCKET, SO_BINDTODEVICE, (char *)&ifreq, sizeof(ifreq)) < 0)
 		{
 			perror(device);
-			close(sk);
+			shutdown(sk, SHUT_RDWR);
 			sleep(3);
 			continue;
 		}
@@ -397,7 +406,7 @@ int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cp
 	}while(1);
 	
 	//关闭刚才创建使用UDP协议的套接字
-	close(sk);
+	shutdown(sk, SHUT_RDWR);
 	return 0;
 }
 
@@ -430,7 +439,7 @@ int cpri_tcpcon(const BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr, const in
 		ret = connect(sk, (struct sockaddr*)cpri_addr, sizeof(struct sockaddr));
 		if(ret < 0)
 		{
-			perror(cpri_ans.rru_ip);
+			perror(eth_name[cpri_num]);
 			sleep(3);
 		}
 	}while(ret < 0);
