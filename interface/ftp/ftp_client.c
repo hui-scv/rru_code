@@ -38,9 +38,12 @@ static int ftpcmd(int gCmdSock, const char *s1, const char * s2, char cpri_num)
 	do{
 		memset(gRevBuf[cpri_num], 0 , 512);
 		strcpy(gRevBuf[cpri_num], "EOF");
-		if(recv(gCmdSock, gRevBuf[cpri_num], sizeof(gRevBuf[cpri_num])-2, 0 ) < 0)
+	
+		struct timeval timeout = {6, 0};
+		setsockopt(gCmdSock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+		if(recv(gCmdSock, gRevBuf[cpri_num], sizeof(gRevBuf[cpri_num])-2, 0 ) < 0 && errno == EAGAIN)
 		{
-			return 0;
+			return -8;
 		}
 	}while(!isdigit(gRevBuf[cpri_num][0]) || gRevBuf[cpri_num][3] != ' ');
 	gRevBuf[cpri_num][3] = '\0';
@@ -50,7 +53,7 @@ static int ftpcmd(int gCmdSock, const char *s1, const char * s2, char cpri_num)
 	return iRet;
 }
 
-int download(char *net_name, int gCmdSock, char * local_path, char * server_path, char *server_ip, char cpri_num)
+int download(char *net_name, int gCmdSock, char * local_path, char * server_path, char * server_ip, char cpri_num)
 {
 	int rd;
 	char * buf_ptr;
@@ -121,14 +124,23 @@ int download(char *net_name, int gCmdSock, char * local_path, char * server_path
 		return -6;		//创建本地文件失败，返回-6
 	}
 
+	struct timeval timeout = {6, 0};
+	setsockopt(gDataSock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
 	while(1)
 	{
 		rd = recv(gDataSock, buffer, 4096, 0);
 		printf("rd=%d\n",rd);
-		if( rd <= 0 )
+		if(rd <= 0)
 				break;
 		write(fd_local, buffer, rd);
 		//sleep(1);
+	}
+
+	if (rd < 0 && errno == EAGAIN) {
+		fprintf(stderr, "Trans file timeout.\n");
+		close(fd_local);
+		close(gDataSock);
+		return -8;		//下载文件超时，返回-8
 	}
 
 	if (ftpcmd(gCmdSock, NULL, NULL, cpri_num) != 226) {
@@ -236,11 +248,12 @@ int upload(char *net_name, int gCmdSock, char * local_path, char * server_path, 
 	return 0;
 }
 
-int ftp_down(char *net_name, char *server_ip, char *local_file, char *server_file, char cpri_num)
+int ftp_down(char *net_name, unsigned char server_ip[4], char *local_file, char *server_file, char cpri_num)
 {
 	struct sockaddr_in ftpSrv_addr;
 	struct ifreq ifreq;
 	int gCmdSock, ret;
+	char ip[20];
 
 	memset(&ifreq, 0, sizeof(struct ifreq));
 
@@ -256,9 +269,11 @@ int ftp_down(char *net_name, char *server_ip, char *local_file, char *server_fil
 	setsockopt(gCmdSock, SOL_SOCKET, SO_BINDTODEVICE, (char *)&ifreq, sizeof(ifreq));
 
 	// Connect to Ftp server
+	sprintf(ip, "%d.%d.%d.%d", server_ip[0], server_ip[1], server_ip[2], server_ip[3]);
+	printf("%s\n", ip);
 	memset(&ftpSrv_addr, 0, sizeof(ftpSrv_addr));
 	ftpSrv_addr.sin_family = AF_INET;
-	ftpSrv_addr.sin_addr.s_addr = inet_addr(server_ip);
+	ftpSrv_addr.sin_addr.s_addr = inet_addr(ip);
 	ftpSrv_addr.sin_port = htons(21);
 
 	if(connect(gCmdSock, (struct sockaddr *)&ftpSrv_addr, sizeof(ftpSrv_addr)) < 0)
@@ -269,47 +284,64 @@ int ftp_down(char *net_name, char *server_ip, char *local_file, char *server_fil
 	}
 
 	// Check if connect OK
-	if(ftpcmd(gCmdSock, NULL, NULL, cpri_num) != 220)
+	ret = ftpcmd(gCmdSock, NULL, NULL, cpri_num);
+	if(ret != 220)
 	{
 		fprintf(stderr, "FTP server not ready error\n");
 		close(gCmdSock);
+		if(ret == -8)
+			return -8;
 		return -1;			//ftp服务器没有准备就绪，返回-1
 	}
 	printf("FTP READY!\n");
+	
 	// Login
-	switch(ftpcmd(gCmdSock, "USER", ftpinfo[cpri_num].usr, cpri_num))
+	ret = ftpcmd(gCmdSock, "USER", ftpinfo[cpri_num].usr, cpri_num);
+	switch(ret)
 	{
 		case 230:
 			break;
 		case 331:
-			if(ftpcmd(gCmdSock, "PASS", ftpinfo[cpri_num].pwd, cpri_num) != 230)
+			ret = ftpcmd(gCmdSock, "PASS", ftpinfo[cpri_num].pwd, cpri_num);
+			if(ret != 230)
 			{
 				fprintf(stderr, "Wrong password\n");
 				close(gCmdSock);
+				if(ret == -8)
+					return -8;
 				return -3;		//ftp登录时，密码错误，返回-3
 			}
 			break;
 		default:
 			fprintf(stderr, "Wrong user\n");
 			close(gCmdSock);
+			if(ret == -8)
+				return -8;
 			return -2;		//ftp登录时，用户名错误，返回-2
 	}
+	
 	// Tansfor mode
-	ftpcmd(gCmdSock, "TYPE I", NULL, cpri_num);
+	ret = ftpcmd(gCmdSock, "TYPE I", NULL, cpri_num);
+	if(ret == -8)
+	{
+		close(gCmdSock);
+		return -8;
+	}
 	printf("Login Success!\n");
 
-	ret = download(net_name, gCmdSock, local_file, server_file, server_ip, cpri_num);
+	ret = download(net_name, gCmdSock, local_file, server_file, ip, cpri_num);
 
 	ftpcmd(gCmdSock, "QUIT", NULL, cpri_num);
 	close(gCmdSock);
 	return ret;
 }
 
-int ftp_up(char *net_name, char *server_ip, char *local_file, char *server_file, char cpri_num)
+int ftp_up(char *net_name, unsigned char server_ip[4], char *local_file, char *server_file, char cpri_num)
 {
 	struct sockaddr_in ftpSrv_addr;
 	struct ifreq ifreq;
 	int gCmdSock, ret;
+	char ip[20];
 
 	memset(&ifreq, 0, sizeof(struct ifreq));
 
@@ -325,9 +357,10 @@ int ftp_up(char *net_name, char *server_ip, char *local_file, char *server_file,
 	setsockopt(gCmdSock, SOL_SOCKET, SO_BINDTODEVICE, (char *)&ifreq, sizeof(ifreq));
 
 	// Connect to Ftp server
+	sprintf(ip, "%d.%d.%d.%d", server_ip[0], server_ip[1], server_ip[2], server_ip[3]);
 	memset(&ftpSrv_addr, 0, sizeof(ftpSrv_addr));
 	ftpSrv_addr.sin_family = AF_INET;
-	ftpSrv_addr.sin_addr.s_addr = inet_addr(server_ip);
+	ftpSrv_addr.sin_addr.s_addr = inet_addr(ip);
 	ftpSrv_addr.sin_port = htons(21);
 
 	if(connect(gCmdSock, (struct sockaddr *)&ftpSrv_addr, sizeof(ftpSrv_addr)) < 0)
@@ -338,33 +371,49 @@ int ftp_up(char *net_name, char *server_ip, char *local_file, char *server_file,
 	}
 
 	// Check if connect OK
-	if(ftpcmd(gCmdSock, NULL, NULL, cpri_num) != 220)
+	ret = ftpcmd(gCmdSock, NULL, NULL, cpri_num);
+	if(ret != 220)
 	{
 		fprintf(stderr, "FTP server not ready error\n");
 		close(gCmdSock);
+		if(ret == -8)
+			return -8;
 		return -1;			//ftp服务器没有准备就绪，返回-1
 	}
 	printf("FTP READY!\n");
+	
 	// Login
-	switch(ftpcmd(gCmdSock, "USER", ftpinfo[cpri_num].usr, cpri_num))
+	ret = ftpcmd(gCmdSock, "USER", ftpinfo[cpri_num].usr, cpri_num);
+	switch(ret)
 	{
 		case 230:
 			break;
 		case 331:
-			if(ftpcmd(gCmdSock, "PASS", ftpinfo[cpri_num].pwd, cpri_num) != 230)
+			ret = ftpcmd(gCmdSock, "PASS", ftpinfo[cpri_num].pwd, cpri_num);
+			if(ret != 230)
 			{
 				fprintf(stderr, "Wrong password\n");
 				close(gCmdSock);
+				if(ret == -8)
+					return -8;
 				return -3;		//ftp登录时，密码错误，返回-3
 			}
 			break;
 		default:
 			fprintf(stderr, "Wrong user\n");
 			close(gCmdSock);
+			if(ret == -8)
+				return -8;
 			return -2;		//ftp登录时，用户名错误，返回-2
 	}
+	
 	// Tansfor mode
-	ftpcmd(gCmdSock, "TYPE I", NULL, cpri_num);
+	ret = ftpcmd(gCmdSock, "TYPE I", NULL, cpri_num);
+	if(ret == -8)
+	{
+		close(gCmdSock);
+		return -8;
+	}
 	printf("Login Success!\n");
 
 	ret = upload(net_name, gCmdSock, local_file, server_file, server_ip, cpri_num);

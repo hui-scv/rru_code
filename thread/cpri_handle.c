@@ -9,11 +9,13 @@
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <signal.h>
 #include <sys/time.h>
 
 #include "thread/cpri_handle.h"
+#include "thread/idle_thread.h"
 #include "struct.h"
 #include "ftp_client.h"
 #include "usr.h"
@@ -245,37 +247,65 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 				{
 					if(softchk[cpri_num].res != 0)	//得出版本不一致，需要更新软件
 					{
-						strcat(server_file, softchk[cpri_num].file_path);
-						strcat(server_file, softchk[cpri_num].file_name);
-						ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, softchk[cpri_num].file_name, server_file, cpri_num);
-						verupdata[cpri_num].soft_type = softchk[cpri_num].soft_type;
-						if(ret == -5)
-							verupdata[cpri_num].res = 1;		//给出版本下载的结果
-						else
-							verupdata[cpri_num].res = 0;
-						
-						msg_head.msg_id = CPRI_VERUP_IND;
-						msg_head.msg_size = MSG_HEADSIZE + softchk[cpri_num].ie_size;
-						memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-						memcpy(send_msg + MSG_HEADSIZE, (char *)(&softchk[cpri_num]), sizeof(CL_SOFTCHK));
-						send(sk, send_msg, msg_head.msg_size, 0);
+						while(1)
+						{
+							//strcat(server_file, softchk[cpri_num].file_path);
+							//strcat(server_file, softchk[cpri_num].file_name);
+							sprintf(server_file, "%s/%s", softchk[cpri_num].file_path, softchk[cpri_num].file_name);
+							ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, softchk[cpri_num].file_name, server_file, cpri_num);
+							verupdata[cpri_num].soft_type = softchk[cpri_num].soft_type;
+							if(ret == 0)
+								verupdata[cpri_num].res = 0;		//文件下载成功
+							else if(ret == -5)
+								verupdata[cpri_num].res = 1;		//文件不存在
+							else if(ret == -8)
+								verupdata[cpri_num].res = 2;		//文件下载超时
+							else if(ret == -9)
+								verupdata[cpri_num].res = 3;		//文件过大
+							else
+								verupdata[cpri_num].res = 4;		//其它原因
+
+							msg_head.msg_id = CPRI_VERUP_IND;
+							msg_head.msg_size = MSG_HEADSIZE + softchk[cpri_num].ie_size;
+							memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+							memcpy(send_msg + MSG_HEADSIZE, (char *)(&softchk[cpri_num]), sizeof(CL_SOFTCHK));
+							send(sk, send_msg, msg_head.msg_size, 0);
+							if(verupdata[cpri_num].res == 0)
+								break;
+							else
+								sleep(1);
+						}
 					}
 					if(bioschk[cpri_num].res != 0)	//得出版本不一致，需要更新固件
 					{
-						strcat(server_file, bioschk[cpri_num].file_path);
-						strcat(server_file, bioschk[cpri_num].file_name);
-						ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, bioschk[cpri_num].file_name, server_file, cpri_num);
-						verupdata[cpri_num].soft_type = bioschk[cpri_num].soft_type;
-						if(ret == -5)
-							verupdata[cpri_num].res = 1;		//给出版本下载的结果
-						else
-							verupdata[cpri_num].res = 0;
-						
-						msg_head.msg_id = CPRI_VERUP_IND;
-						msg_head.msg_size = MSG_HEADSIZE + bioschk[cpri_num].ie_size;
-						memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-						memcpy(send_msg + MSG_HEADSIZE, (char *)(&bioschk[cpri_num]), sizeof(CL_SOFTCHK));
-						send(sk, send_msg, msg_head.msg_size, 0);
+						while(1)
+						{
+							//strcat(server_file, bioschk[cpri_num].file_path);
+							//strcat(server_file, bioschk[cpri_num].file_name);
+							sprintf(server_file, "%s/%s", bioschk[cpri_num].file_path, bioschk[cpri_num].file_name);
+							ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, bioschk[cpri_num].file_name, server_file, cpri_num);
+							verupdata[cpri_num].soft_type = bioschk[cpri_num].soft_type;
+							if(ret == 0)
+								verupdata[cpri_num].res = 0;		//文件下载成功
+							else if(ret == -5)
+								verupdata[cpri_num].res = 1;		//文件不存在
+							else if(ret == -8)
+								verupdata[cpri_num].res = 2;		//文件下载超时
+							else if(ret == -9)
+								verupdata[cpri_num].res = 3;		//文件过大
+							else
+								verupdata[cpri_num].res = 4;		//其它原因
+
+							msg_head.msg_id = CPRI_VERUP_IND;
+							msg_head.msg_size = MSG_HEADSIZE + bioschk[cpri_num].ie_size;
+							memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+							memcpy(send_msg + MSG_HEADSIZE, (char *)(&bioschk[cpri_num]), sizeof(CL_SOFTCHK));
+							send(sk, send_msg, msg_head.msg_size, 0);
+							if(verupdata[cpri_num].res == 0)
+								break;
+							else
+								sleep(1);
+						}
 					}
 					break;
 				}
@@ -361,14 +391,22 @@ int cpri_verdown_que(int sk, char *msg, const int cpri_num)
 			send(sk, send_msg, msg_head.msg_size, 0);	//发送版本下载应答消息体
 
 			//进行ftp下载文件
-			strcat(server_file, softchk[cpri_num].file_path);
-			strcat(server_file, softchk[cpri_num].file_name);
+			//strcat(server_file, softchk[cpri_num].file_path);
+			//strcat(server_file, softchk[cpri_num].file_name);
+			sprintf(server_file, "%s/%s", softchk[cpri_num].file_path, softchk[cpri_num].file_name);
 			ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, softchk[cpri_num].file_name, server_file, 0);
 			verdownres[cpri_num].soft_type = softchk[cpri_num].soft_type;
-			if(ret == -5)
-				verdownres[cpri_num].res = 1;		//给出版本下载的结果
+			if(ret == 0)
+				verdownres[cpri_num].res = 0;		//文件下载成功
+			else if(ret == -5)
+				verdownres[cpri_num].res = 1;		//文件不存在
+			else if(ret == -8)
+				verdownres[cpri_num].res = 2;		//文件下载超时
+			else if(ret == -9)
+				verdownres[cpri_num].res = 3;		//文件过大
 			else
-				verdownres[cpri_num].res = 0;
+				verdownres[cpri_num].res = 4;		//其它原因
+								
 			msg_head.msg_id = CPRI_VERDOWN_IND;
 			msg_head.msg_size = MSG_HEADSIZE + verdownres[cpri_num].ie_size;
 			memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
@@ -1073,12 +1111,6 @@ int cpri_delaymse_que(int sk, char *msg, const int cpri_num)
 void cpri_get_ala(AR_ALAQUE *ala_que, AR_ALAREP *ala_rep, const int cpri_num)
 {
 	int i = 0;
-	time_t t;
-	struct tm area;
-
-	//获取系统时间，并转换成struct tm结构体的格式
-	t = time(NULL);
-	localtime_r(&t, &area);
 
 	for(i = 0; i < 23; i++)
 	{
@@ -1088,7 +1120,7 @@ void cpri_get_ala(AR_ALAQUE *ala_que, AR_ALAREP *ala_rep, const int cpri_num)
 		}else
 		{
 			//判断请求的告警码是否有效，即此告警码是否存在
-			if(ala_que->ala_code == *(unsigned int *)((char *)(&alaexl[0]) + i*4))
+			if(ala_que->ala_code == *(unsigned int *)((char *)(&alaexl[cpri_num]) + i*4))
 			{
 				ala_rep->ala_able = 0;		//告警码存在
 
@@ -1109,7 +1141,7 @@ void cpri_get_ala(AR_ALAQUE *ala_que, AR_ALAREP *ala_rep, const int cpri_num)
 	}
 
 	//获取时间戳，包括年月日时分秒
-	sprintf(ala_rep->time_stamp, "%d%02d%02d%02d%02d%02d", area.tm_year + 1900, area.tm_mon + 1, area.tm_mday, area.tm_hour, area.tm_min, area.tm_sec);
+	get_stamp(ala_rep->time_stamp);
 	ala_rep->ala_code = ala_que->ala_code;
 	ala_rep->ala_subcode = ala_que->ala_subcode;
 	//ala_rep->addi_data = "";
@@ -1210,14 +1242,27 @@ int cpri_logup_que(int sk, char *msg, const int cpri_num)
 		{
 			upres[cpri_num].log_type = upque[cpri_num].log_type;
 			//进行ftp上传日志，然后记录上传结果
-			strcat(server_file, upque[cpri_num].bbu_path);
-			strcat(server_file, upque[cpri_num].bbu_file);
+			//strcat(server_file, upque[cpri_num].bbu_path);
+			//strcat(server_file, upque[cpri_num].bbu_file);
+			sprintf(server_file, "%s/%s", upque[cpri_num].bbu_path, upque[cpri_num].bbu_file);
 			if(upres[cpri_num].log_type == 0)
-				upres[cpri_num].res = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, err_file, server_file, 0);
+				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, err_file, server_file, 0);
 			else if(upque[cpri_num].log_type == 1)
-				upres[cpri_num].res = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "usr.txt", server_file, 0);
+				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "usr.txt", server_file, 0);
 			else
-				upres[cpri_num].res = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "sys.txt", server_file, 0);
+				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "sys.txt", server_file, 0);
+
+			if(ret == 0)
+				upres[cpri_num].res = 0;		//文件下载成功
+			else if(ret == -5)
+				upres[cpri_num].res = 1;		//文件不存在
+			else if(ret == -8)
+				upres[cpri_num].res = 2;		//文件下载超时
+			else if(ret == -9)
+				upres[cpri_num].res = 3;		//文件过大
+			else
+				upres[cpri_num].res = 4;		//其它原因
+			
 			msg_head.msg_id = CPRI_LOGUP_IND;
 			msg_head.msg_size = MSG_HEADSIZE + upres[cpri_num].ie_size;
 			memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);

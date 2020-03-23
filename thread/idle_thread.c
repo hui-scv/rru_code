@@ -54,7 +54,7 @@ void get_stamp(char time_stamp[22])
  * input：void
  * output：void
  */
-static send_err(int ala_code, int ala_subcode, int ala_flag, char *stamp, char *err_msg, int cpri_num)
+static void send_err(int ala_code, int ala_subcode, int ala_flag, char *stamp, char *err_msg, int cpri_num)
 {
 	MSG_HEAD msg_head;
 	char send_msg[160];
@@ -135,6 +135,13 @@ void idle_handle(void)
 				if((cpri_ala_flag[cpri_num] >> 0) & 0x01)
 				{
 					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 0));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s RRU输入电源监控告警清除,00001\n", time_stamp);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
 					send_err(1, 0, 1, time_stamp, erro_msg, cpri_num);
 				}
 			}
@@ -159,6 +166,13 @@ void idle_handle(void)
 				if((cpri_ala_flag[cpri_num] >> 3) & 0x01)
 				{
 					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 3));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s 电源故障告警清除,30001\n", time_stamp);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
 					send_err(30001, 0, 1, time_stamp, erro_msg, cpri_num);
 				}
 			}
@@ -183,6 +197,13 @@ void idle_handle(void)
 				if((cpri_ala_flag[cpri_num] >> 4) & 0x01)
 				{
 					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 4));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s 功放过温告警清除,40001\n", time_stamp);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
 					send_err(40001, cpri_num, 1, time_stamp, erro_msg, cpri_num);
 				}
 			}
@@ -217,6 +238,13 @@ void idle_handle(void)
 				if((cpri_ala_flag[cpri_num] >> 5) & 0x01)
 				{
 					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 5));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s 本振失锁告警清除,50001\n", time_stamp);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
 					send_err(50001, 0, 1, time_stamp, erro_msg, cpri_num);
 				}
 			}
@@ -241,6 +269,13 @@ void idle_handle(void)
 				if((cpri_ala_flag[cpri_num] >> 6) & 0x01)
 				{
 					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 6));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s 上行通道故障告警清除,60001\n", time_stamp);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
 					send_err(60001, cpri_num, 1, time_stamp, erro_msg, cpri_num);
 				}
 			}
@@ -265,7 +300,45 @@ void idle_handle(void)
 				if((cpri_ala_flag[cpri_num] >> 7) & 0x01)
 				{
 					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 7));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s 下行通道故障告警清除,70001\n", time_stamp);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
 					send_err(70001, cpri_num, 1, time_stamp, erro_msg, cpri_num);
+				}
+			}
+
+			/* 13、文件下载失败告警 */
+			if(verupdata[cpri_num].res > 0)
+			{
+				if(((cpri_ala_flag[cpri_num] >> 12) & 0x01) == 0)
+				{
+					cpri_ala_flag[cpri_num] |= (0x00000001 << 12);		//设置故障标志		
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s 文件下载失败告警,130001,%d\n", time_stamp, verupdata[cpri_num].res);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+
+					send_err(130001, verupdata[cpri_num].res, 0, time_stamp, erro_msg, cpri_num);
+				}
+			}else
+			{
+				if((cpri_ala_flag[cpri_num] >> 12) & 0x01)
+				{
+					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 12));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s 文件下载失败告警清除,130001,%d\n", time_stamp, verupdata[cpri_num].res);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
+					send_err(130001, verupdata[cpri_num].res, 1, time_stamp, erro_msg, cpri_num);
 				}
 			}
 
@@ -289,6 +362,13 @@ void idle_handle(void)
 				if((cpri_ala_flag[cpri_num] >> 15) & 0x01)
 				{
 					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 15));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s RRU处理器过载告警清除,160001\n", time_stamp);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
 					send_err(160001, 0, 1, time_stamp, erro_msg, cpri_num);
 				}
 			}
@@ -313,6 +393,13 @@ void idle_handle(void)
 				if((cpri_ala_flag[cpri_num] >> 21) & 0x01)
 				{
 					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 21));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s 板卡过温告警清除,220001\n", time_stamp);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
 					send_err(220001, cpri_num, 1, time_stamp, erro_msg, cpri_num);
 				}
 			}
@@ -337,6 +424,13 @@ void idle_handle(void)
 				if((cpri_ala_flag[cpri_num] >> 22) & 0x01)
 				{
 					cpri_ala_flag[cpri_num] &= (~(0x00000001 << 22));		//清除故障标志
+					//获取系统时间戳
+					get_stamp(time_stamp);
+					sprintf(erro_msg, "%s 板卡过温告警清除,230001\n", time_stamp);
+					ret = write(fd, erro_msg, strlen(erro_msg));
+					if(ret < 0)
+						perror(erro_msg);
+					
 					send_err(230001, 0, 1, time_stamp, erro_msg, cpri_num);
 				}
 			}
