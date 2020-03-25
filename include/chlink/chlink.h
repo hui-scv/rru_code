@@ -33,7 +33,7 @@ typedef struct cl_rrucapa		//RRU能力IE
 	unsigned int lte_num;		//支持的LTE载波个数
 	unsigned int _5g_num;		//支持的5GNR载波个数
 	unsigned char ant_num;		//支持的天线个数
-	unsigned short tra_power;	//天线最大发射功率
+	short tra_power;	//天线最大发射功率
 	unsigned char master_type;	//通信主从属性
 	unsigned int rru_dl_max;	//RRU支持的下行时延补偿最大值(DL CalRRU_MAX)
 	unsigned int rru_ul_max;	//RRU支持的上行时延补偿最大值(UL CalRRU_MAX)
@@ -65,7 +65,7 @@ typedef struct cl_rrusoftinfo		//RRU软件版本信息IE
 	unsigned short ie_id;		//IE标志
 	unsigned short ie_size;		//IE长度
 	unsigned char soft_ver[40];	//RRU软件版本号
-	unsigned char bios_ver[40];	//固件软件版本号
+	unsigned char firm_ver[40];	//固件软件版本号
 } CL_RRUSOFTINFO;
 
 typedef struct cl_rrufre		//RRU频段能力IE

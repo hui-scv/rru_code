@@ -64,7 +64,7 @@ typedef struct cl_rrusoftinfo_pc	//RRU软件版本信息IE
 	unsigned short ie_id;		//IE标志
 	unsigned short ie_size;		//IE长度
 	unsigned char soft_ver[40];	//RRU软件版本号
-	unsigned char bios_ver[40];	//固件软件版本号
+	unsigned char firm_ver[40];	//固件软件版本号
 } CL_RRUSOFTINFO_PC;
 
 typedef struct cl_rrufre_pc		//RRU频段能力IE

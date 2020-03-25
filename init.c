@@ -134,7 +134,56 @@ void signalHandler(int signo)
 
 
 /*
- * 函数名：int cpri_write_str(const char *msg, int i)
+ * 函数名：int cprix_write_info(char *msg, int i, int cpri_num)
+ * 功能描述：写入cpri口不同内容的信息。
+ * input：
+ * 		1、msg，指向一段内存的指针，用于传递写入的消息；
+ *		2、i， 用于指明是哪部份的系统信息。
+ * output：
+ * 		成功：ret，读出数据的size；
+ * 		失败：-1
+ */
+int cprix_write_info(char *msg, int i, int cpri_num)
+{
+	int fd, ret;
+	char path[30];
+	
+	sprintf(path, "../cpriinfo/cpri%d_info", cpri_num);
+	fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+	if(fd < 0)
+	{
+		perror("open cprix_info");
+		goto fd_error;
+	}
+
+	//定位到要写入rru系统信息中的某一项信息的开头位置，如果定位失败就关闭文件并返回-1
+	ret = lseek(fd, (i - 1) * 512, SEEK_SET);
+	if(ret < 0)
+	{
+		perror("lseek cprix_info");
+		goto error;
+	}
+
+	//写入rru系统信息中的某一项信息，如果写入失败就关闭文件并返回-1
+	ret = write(fd, msg, 512);
+	if(ret < 0)
+	{
+		perror("write cprix_info");
+		goto error;
+	}
+	
+	//读取成功，关闭文件
+	close(fd);
+	return ret;
+
+error:
+	close(fd);
+fd_error:
+	return -1;
+}
+
+/*
+ * 函数名：int cpri_write_info(char *msg, int i)
  * 功能描述：读取RRU系统信息的接口，将上一次配置的RRU信息读取出来并采用。
  * input：
  * 		1、msg，指向一段内存的指针，用于传递写入的消息；
@@ -143,15 +192,16 @@ void signalHandler(int signo)
  * 		成功：ret，读出数据的size；
  * 		失败：-1
  */
-int cpri_write_str(const char *msg, int i)
+int cpri_write_info(char *msg, int i)
 {
 	int fd, ret;
-
-	//打开存储rru系统信息的文件，如果文件不存在，则创建一个新文件
-	fd = open("./rru_info.dat", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+	char path[30];
+	
+	sprintf(path, "../cpriinfo/cpri_info");
+	fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
 	if(fd < 0)
 	{
-		perror("open rru_info");
+		perror("open cpri_info");
 		goto fd_error;
 	}
 
@@ -159,7 +209,7 @@ int cpri_write_str(const char *msg, int i)
 	ret = lseek(fd, (i - 1) * 512, SEEK_SET);
 	if(ret < 0)
 	{
-		perror("lseek rru_info");
+		perror("lseek cpri_info");
 		goto error;
 	}
 
@@ -167,7 +217,7 @@ int cpri_write_str(const char *msg, int i)
 	ret = write(fd, msg, 512);
 	if(ret < 0)
 	{
-		perror("write rru_info");
+		perror("write cpri_info");
 		goto error;
 	}
 	
@@ -181,9 +231,8 @@ fd_error:
 	return -1;
 }
 
-
 /*
- * 函数名：int cpri_read_str(char *msg, int i)
+ * 函数名：int cprix_read_info(char *msg, int i, int cpri_num)
  * 功能描述：读取RRU系统信息的接口，将上一次配置的RRU信息读取出来并采用。
  * input：
  * 		1、msg，指向一段内存的指针，用于存储读取出来的RRU系统信息；
@@ -192,15 +241,17 @@ fd_error:
  * 		成功：ret，读出数据的size；
  * 		失败：-1
  */
-int cpri_read_str(char *msg, int i)
+int cprix_read_info(char *msg, int i, int cpri_num)
 {
 	int fd, ret;
+	char path[30];
 
+	sprintf(path, "../cpriinfo/cpri%d_info", cpri_num);
 	//打开存储rru系统信息的文件，如果打开失败则返回-1
-	fd = open("./rru_info.dat", O_RDONLY);
+	fd = open(path, O_RDONLY);
 	if(fd < 0)
 	{
-		perror("open rru_info");
+		perror(path);
 		goto fd_error;
 	}
 
@@ -208,7 +259,7 @@ int cpri_read_str(char *msg, int i)
 	ret = lseek(fd, (i - 1) * 512, SEEK_SET);
 	if(ret < 0)
 	{
-		perror("lseek rru_info");
+		perror(path);
 		goto error;
 	}
 
@@ -216,7 +267,7 @@ int cpri_read_str(char *msg, int i)
 	ret = read(fd, msg, 512);
 	if(ret < 0)
 	{
-		perror("read rru_info");
+		perror(path);
 		goto error;
 	}
 	
@@ -229,6 +280,152 @@ error:
 fd_error:
 	return -1;
 }
+
+/*
+ * 函数名：int cpri_read_info(char *msg, int i)
+ * 功能描述：读取RRU系统信息的接口，将上一次配置的RRU信息读取出来并采用。
+ * input：
+ * 		1、msg，指向一段内存的指针，用于存储读取出来的RRU系统信息；
+ *		2、i， 用于指明是哪部份的系统信息。
+ * output：
+ * 		成功：ret，读出数据的size；
+ * 		失败：-1
+ */
+int cpri_read_info(char *msg, int i)
+{
+	int fd, ret;
+	char path[30];
+
+	sprintf(path, "../cpriinfo/cpri_info");
+	//打开存储rru系统信息的文件，如果打开失败则返回-1
+	fd = open(path, O_RDONLY);
+	if(fd < 0)
+	{
+		perror(path);
+		goto fd_error;
+	}
+
+	//定位到要读取rru系统信息中的某一项信息的开头位置，如果读取失败就关闭文件并返回-1
+	ret = lseek(fd, (i - 1) * 512, SEEK_SET);
+	if(ret < 0)
+	{
+		perror(path);
+		goto error;
+	}
+
+	//读取rru系统信息中的某一项信息，如果读取失败就关闭文件并返回-1
+	ret = read(fd, msg, 512);
+	if(ret < 0)
+	{
+		perror(path);
+		goto error;
+	}
+	
+	//读取成功，关闭文件
+	close(fd);
+	return ret;
+
+error:
+	close(fd);
+fd_error:
+	return -1;
+}
+
+/*
+ * 函数名：void read_cpirx(void)
+ * 功能描述：获取每个cpri口内容不同的IE信息。
+ * input：void
+ * output：void
+ */
+void read_cpirx(void)
+{
+	char msg[512];
+	int i, j, ret;
+
+	for(j = 0; j < 8; j++)
+	{
+		for(i = 1; i < 3; i++)
+		{
+			memset(msg, 0, 512);
+			ret = cprix_read_info(msg, i, j);
+			
+			if(ret == -1)
+				break;
+			
+			switch(i)
+			{
+				case 1:		//RRU频段能力IE
+					if((*(unsigned short *)msg) == 7)
+						memcpy((char *)(&rrufre[j]) + 4, (char *)msg + 4, sizeof(CL_RRUFRE) - 4);
+					break;
+				case 2:		//RRU射频通道能力IE
+					if((*(unsigned short *)msg) == 8)
+						memcpy((char *)(&rrurf[j]) + 4, (char *)msg + 4, sizeof(CL_RRURF) - 4);
+					break;
+			}
+		}
+	}
+}
+
+/*
+ * 函数名：void read_cpir(void)
+ * 功能描述：获取每个cpri口内容相同的IE信息。
+ * input：void
+ * output：void
+ */
+void read_cpir(void)
+{
+	char msg[512];
+	int i, j, ret;
+
+	for(i = 1; i < 9; i++)
+	{
+		memset(msg, 0, 512);
+		ret = cpri_read_info(msg, i);
+
+		if(ret == -1)
+			break;
+		
+		for(j = 0; j < 8; j++)
+		{
+			switch(i)
+			{
+				case 1:		//RRU产品标识IE
+					if((*(unsigned short *)msg) == 1)
+						memcpy((char *)(&porid[j]) + 4, (char *)msg + 4, sizeof(CL_PROID) - 4);
+					break;
+				case 2:		//通道建立原因IE
+					if((*(unsigned short *)msg) == 2)
+						memcpy((char *)(&linktype[j]) + 4, (char *)msg + 4, sizeof(CL_LINKTYPE) - 4);
+					break;
+				case 3:		//RRU能力IE
+					if((*(unsigned short *)msg) == 3)
+						memcpy((char *)(&rrucapa[j]) + 4, (char *)msg + 4, sizeof(CL_RRUCAPA) - 4);
+					break;
+				case 4:		//RRU级数IE
+					if((*(unsigned short *)msg) == 4)
+						rrulv[j].rru_lv = ((CL_RRULV *)msg)->rru_lv;
+					break;
+				case 5:		//RRU硬件类型及版本信息IE
+					if((*(unsigned short *)msg) == 5)
+						memcpy((char *)(&rruinfo[j]) + 4, (char *)msg + 4, sizeof(CL_RRUINFO) - 4);
+					break;
+				case 6:		//RRU软件版本信息IE
+					if((*(unsigned short *)msg) == 6)
+						memcpy((char *)(&rrusoftinfo[j]) + 4, (char *)msg + 4, sizeof(CL_RRUSOFTINFO) - 4);
+					break;
+				case 7:		//载波能力组合IE
+					if((*(unsigned short *)msg) == 9)
+						memcpy((char *)(&rrucir[j]) + 4, (char *)msg + 4, sizeof(CL_RRUCIR) - 4);
+				case 8:	//CPU占用率统计周期响应IE
+					if((*(unsigned short *)msg) == 452)
+						memcpy((char *)(&ratecycans[j]) + 4, (char *)msg + 4, sizeof(PQ_RATECYCANS) - 4);
+					break;
+			}
+		}
+	}
+}
+
 
 /*
  * 函数名：void init(void)
@@ -241,60 +438,10 @@ void init(void)
 	struct itimerval new_value;
 	char msg[512];
 	int i, j, ret;
-	//pthread_rwlock_init(&chlinkque_rwlock, NULL);
 
-	//按照id号为1-10来读取RRU系统信息的结构体，然后将其存储到8个cpri接口中。
-	//这里有个问题就是是否每个cpri的系统信息都相同？如果不同则不可以这样做！
-	for(i = 1; i < 11; i++)
-	{
-		memset(msg, 0, 512);
-		ret = cpri_read_str(msg, i);
-		if(ret > 0)
-			for(j = 0; j < 8; j++)
-			{
-				switch(i)
-				{
-					case 1:		//RRU产品标识IE
-						//memcpy((char *)(&porid_pc) + 4, (char *)msg + 4, sizeof(CL_PROID_PC) - 4);
-						memcpy((char *)(&porid[j]) + 4, (char *)msg + 4, sizeof(CL_PROID) - 4);
-						break;
-					case 2:		//通道建立原因IE
-						//memcpy((char *)(&linktype_pc) + 4, (char *)msg + 4, sizeof(CL_LINKTYPE_PC) - 4);
-						memcpy((char *)(&linktype[j]) + 4, (char *)msg + 4, sizeof(CL_LINKTYPE) - 4);
-						break;
-					case 3:		//RRU能力IE
-						//memcpy((char *)(&rrucapa_pc) + 4, (char *)msg + 4, sizeof(CL_RRUCAPA_PC) - 4);
-						memcpy((char *)(&rrucapa[j]) + 4, (char *)msg + 4, sizeof(CL_RRUCAPA) - 4);
-						break;
-					case 4:		//RRU级数IE
-						//rrulv_pc.rru_lv = ((CL_RRULV_PC *)msg)->rru_lv;
-						rrulv[j].rru_lv = ((CL_RRULV *)msg)->rru_lv;
-						break;
-					case 5:		//RRU硬件类型及版本信息IE
-						//memcpy((char *)(&rruinfo_pc) + 4, (char *)msg + 4, sizeof(CL_RRUINFO_PC) - 4);
-						memcpy((char *)(&rruinfo[j]) + 4, (char *)msg + 4, sizeof(CL_RRUINFO) - 4);
-						break;
-					case 6:		//RRU软件版本信息IE
-						//memcpy((char *)(&rrusoftinfo_pc) + 4, (char *)msg + 4, sizeof(CL_RRUSOFTINFO_PC) - 4);
-						memcpy((char *)(&rrusoftinfo[j]) + 4, (char *)msg + 4, sizeof(CL_RRUSOFTINFO) - 4);
-						break;
-					case 7:		//RRU频段能力IE
-						//memcpy((char *)(&rrufre_pc) + 4, (char *)msg + 4, sizeof(CL_RRUFRE_PC) - 4);
-						memcpy((char *)(&rrufre[j]) + 4, (char *)msg + 4, sizeof(CL_RRUFRE) - 4);
-						break;
-					case 8:		//RRU射频通道能力IE
-						//memcpy((char *)(&rrurf_pc) + 4, (char *)msg + 4, sizeof(CL_RRURF_PC) - 4);
-						memcpy((char *)(&rrurf[j]) + 4, (char *)msg + 4, sizeof(CL_RRURF) - 4);
-						break;
-					case 9:		//载波能力组合IE
-						//memcpy((char *)(&rrucir_pc) + 4, (char *)msg + 4, sizeof(CL_RRUCIR_PC) - 4);
-						memcpy((char *)(&rrucir[j]) + 4, (char *)msg + 4, sizeof(CL_RRUCIR) - 4);
-					case 10:	//CPU占用率统计周期响应IE
-						memcpy((char *)(&ratecycans[j]) + 4, (char *)msg + 4, sizeof(PQ_RATECYCANS) - 4);
-						break;
-				}
-			}
-	}
+	//读取记录的cpri相关信息，包括通道建立请求的所有IE消息体，以及cpu占用率的统计周期
+	read_cpir();
+	read_cpirx();
 	
 	//外设驱动初始化
 	driver_init();

@@ -3,10 +3,11 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 void mk_dir(void);
 
-void main(void)
+int main(void)
 {
 	int old_fd = -1, cur_fd = -1, new_fd = -1, status;
 	off_t len;
@@ -46,11 +47,11 @@ void main(void)
 		{
 			execl(path, NULL, NULL);
 			printf("software error!\n");
-			return;
+			exit(-1);
 		}else
 		{
 			wait(&status);
-			printf("software reset!\n");
+			printf("software reset! %d\n", status);
 			sleep(1);
 		}
 	}
@@ -68,7 +69,7 @@ void mk_dir(void)
 		cur_fd = creat("./verinfo/cur_soft", S_IRUSR|S_IWUSR);
 		write(cur_fd, "rru", 3);
 		lseek(cur_fd, 16, SEEK_SET);
-		write(cur_fd, "TUOLAISWV1.0", 12);
+		write(cur_fd, "TLSWV1.0", 8);
 		close(cur_fd);
 	}
 	if(access("./verinfo/old_soft", F_OK) < 0)
@@ -76,7 +77,7 @@ void mk_dir(void)
 		old_fd = creat("./verinfo/old_soft", S_IRUSR|S_IWUSR);
 		write(old_fd, "rru", 3);
 		lseek(old_fd, 16, SEEK_SET);
-		write(old_fd, "TUOLAISWV1.0", 12);
+		write(old_fd, "TLSWV1.0", 8);
 		close(old_fd);
 	}
 	if(access("./verinfo/new_soft", F_OK) < 0)
@@ -84,7 +85,7 @@ void mk_dir(void)
 		new_fd = creat("./verinfo/new_soft", S_IRUSR|S_IWUSR);
 		write(new_fd, "rru", 3);
 		lseek(new_fd, 16, SEEK_SET);
-		write(new_fd, "TUOLAISWV1.0", 12);
+		write(new_fd, "TLSWV1.0", 8);
 		close(new_fd);
 	}
 	

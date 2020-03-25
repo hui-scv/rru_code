@@ -906,7 +906,7 @@ int cpri_paracfg_que(int sk, char *msg, const int cpri_num)
 				{
 					ratecyccfgans[cpri_num].res = 0;
 					ratecycans[0].rate_cyc = ratecyccfg[cpri_num].rate_cyc;		//这里将配置参数查询中CPU占用率统计周期的查询内容
-					cpri_write_str(&ratecycans[0], 10);					//将CPU占用率统计周期参数写入到RRU的信息记录文件中
+					cpri_write_info(&ratecycans[0], 8);					//将CPU占用率统计周期参数写入到RRU的信息记录文件中
 				}
 				//memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + msg_head.msg_size, (char *)(&ratecyccfgans[cpri_num]), sizeof(PC_RATECYCANS));

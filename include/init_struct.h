@@ -21,69 +21,110 @@
 /*******************定义各种结构体***************/
 pthread_rwlock_t chlinkque_rwlock;
 
-CL_PROID porid[] =
+CL_PROID porid[] =		//由PC端提供此信息
 {[0 ... 7] =
 	{
 	.ie_id = 1,
 	.ie_size = 100,
+	.rru_manu = {"TUOLAI"},
+	.rru_pub = {"TUOLAI"},
+	.pro_num = {"RRU-001-001"},
+	.birth_date = {"2020-03-20"},
+	.used_date = {"2020-03-20"},
 	}
 };
 
-CL_LINKTYPE linktype[] =
+CL_LINKTYPE linktype[] =		//由RRU自己设置，并在通道建立之后，将建立原因改为上电
 {[0 ... 7] = 
 	{
 	.ie_id = 2,
 	.ie_size = 9,
+	.link_type = 2,
 	}
 };
 
-CL_RRUCAPA rrucapa[] =
+CL_RRUCAPA rrucapa[] =			//由PC端提供此信息
 {[0 ... 7] = 
 	{
 	.ie_id = 3,
 	.ie_size = 35,
+	.td_num = 0,
+	.lte_num = 0,
+	._5g_num = 1,
+	.ant_num = 1,
+	.tra_power = -2560,
+	.master_type = 1,
 	.rru_dl_max = 33333,
 	.rru_ul_max = 33333,
+	.mode_sel = 4,
+	.ant_type = 0,
+	.mbbu_dl_sel = 0xff,
+	.sbbu_dl_sel = 0xff,
+	.mrru_ul_sel = 0xff,
+	.srru_ul_sel = 0xff,
 	}
 };
 
-CL_RRULV rrulv[] =
+CL_RRULV rrulv[] =			//由PC端提供此信息
 {[0 ... 7] = 
 	{
 	.ie_id = 4,
 	.ie_size = 5,
+	.rru_lv = 1,
 	}
 };
 
-CL_RRUINFO rruinfo[] =
+CL_RRUINFO rruinfo[] =			//由PC端提供此信息
 {[0 ... 7] = 
 	{
 	.ie_id = 5,
 	.ie_size = 52,
+	.type = {'T', 'U', 'O', 'L', 'A', 'I', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 0x01, 0x00, 0x01, 0x00, 0x00, 0xF6,},
+	.version = {"TLHWV1.0"},
 	}
 };
 
-CL_RRUSOFTINFO rrusoftinfo[] =
+CL_RRUSOFTINFO rrusoftinfo[] =	//一开始由PC端提供，后面进行版本下载时，要更新此信息
 {[0 ... 7] = 
 	{
 	.ie_id = 6,
 	.ie_size = 84,
+	.soft_ver = {"TLSWV1.0"},
+	.firm_ver = {"TLFWV1.0"},
 	}
 };
 
-CL_RRUFRE rrufre[] =
+CL_RRUFRE rrufre[] =		//此信息每个cpri口可能不一样，所以不能使用同一个文件记录此信息
 {[0 ... 7] = 
 	{
 	.ie_id = 7,
 	.ie_size = 14,
+	.fre_start = 1,
+	.fre_end = 10,
+	.td_wid = 0,
+	.td_num = 0,
+	.lte_num = 0,
+	._5g_num = 1,
+	.fre_num = 0,
 	}
 };
 
-CL_RRURF rrurf[] =
+CL_RRURF rrurf[] =			//此信息每个cpri口可能不一样，所以不能使用同一个文件记录此信息
 {[0 ... 7] = 
 	{
 	.ie_id = 8,
 	.ie_size = 17,
+	.rf_chal = 1,
+	.ant_num = 1,
+	.td_start = 0,
+	.td_end = 0,
+	.lte_start = 0,
+	.lte_end = 0,
+	._5g_start = 0xF0,
+	._5g_end = 0xF0,
+	.chal_max_rf = -2560,
+	.rf_section = 0,
+	.chal_mode = 3,
 	}
 };
 
@@ -92,6 +133,8 @@ CL_RRUCIR rrucir[] =
 	{
 	.ie_id = 9,
 	.ie_size = 23,
+	.rf_chal = 1,
+	._400_num = 1,
 	}
 };
 
