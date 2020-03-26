@@ -148,7 +148,7 @@ int cprix_write_info(char *msg, int i, int cpri_num)
 	int fd, ret;
 	char path[30];
 	
-	sprintf(path, "../cpriinfo/cpri%d_info", cpri_num);
+	sprintf(path, "./cpriinfo/cpri%d_info", cpri_num);
 	fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
 	if(fd < 0)
 	{
@@ -197,7 +197,7 @@ int cpri_write_info(char *msg, int i)
 	int fd, ret;
 	char path[30];
 	
-	sprintf(path, "../cpriinfo/cpri_info");
+	sprintf(path, "./cpriinfo/cpri_info");
 	fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
 	if(fd < 0)
 	{
@@ -246,7 +246,7 @@ int cprix_read_info(char *msg, int i, int cpri_num)
 	int fd, ret;
 	char path[30];
 
-	sprintf(path, "../cpriinfo/cpri%d_info", cpri_num);
+	sprintf(path, "./cpriinfo/cpri%d_info", cpri_num);
 	//打开存储rru系统信息的文件，如果打开失败则返回-1
 	fd = open(path, O_RDONLY);
 	if(fd < 0)
@@ -296,7 +296,7 @@ int cpri_read_info(char *msg, int i)
 	int fd, ret;
 	char path[30];
 
-	sprintf(path, "../cpriinfo/cpri_info");
+	sprintf(path, "./cpriinfo/cpri_info");
 	//打开存储rru系统信息的文件，如果打开失败则返回-1
 	fd = open(path, O_RDONLY);
 	if(fd < 0)
@@ -426,6 +426,137 @@ void read_cpir(void)
 	}
 }
 
+/*
+ * 函数名：void verinfo_write(int type, char name[16], char verinfo[40])
+ * 功能描述：记录版本下载的信息，并将要激活的主程序路径写入到执行路径中。
+ * input：
+ * 		1、type，传入执行的类型，分为下载并激活，下载，激活；
+ *		2、name，主程序文件名；
+ *		3、verinfo，软件版本号。
+ * output：void
+ */
+void softinfo_write(int type, char name[16], char verinfo[40])
+{
+	int cur_fd = -1, old_fd = -1, new_fd = -1;
+	char buf[60];
+
+	memset(buf, 0, 60);
+	
+	if(type == 0)										//下载并激活
+	{
+		new_fd = open("./verinfo/new_soft", O_RDWR | O_TRUNC);
+		cur_fd = open("./verinfo/cur_soft", O_RDWR);
+		old_fd = open("./verinfo/old_soft", O_RDWR);
+		
+		write(new_fd, name, strlen(name));
+		lseek(new_fd, 16, SEEK_SET);
+		write(new_fd, verinfo, strlen(verinfo));
+	
+		read(cur_fd, buf, 56);
+		write(old_fd, buf, 56);
+		close(old_fd);
+
+		memset(buf, 0, 60);
+		lseek(new_fd, 0, SEEK_SET);
+		lseek(cur_fd, 0, SEEK_SET);
+		
+		read(new_fd, buf, 56);
+		write(cur_fd, buf, 56);
+		close(cur_fd);
+		close(new_fd);
+	}else if(type == 1)				//下载
+	{
+		new_fd = open("./verinfo/new_soft", O_RDWR | O_TRUNC);
+		
+		write(new_fd, name, strlen(name));
+		lseek(new_fd, 16, SEEK_SET);
+		write(new_fd, verinfo, strlen(verinfo));
+		close(new_fd);
+	}else												//激活
+	{
+		new_fd = open("./verinfo/new_soft", O_RDWR);
+		cur_fd = open("./verinfo/cur_soft", O_RDWR);
+		old_fd = open("./verinfo/old_soft", O_RDWR);
+	
+		read(cur_fd, buf, 56);
+		write(old_fd, buf, 56);
+		close(old_fd);
+
+		memset(buf, 0, 60);
+		lseek(cur_fd, 0, SEEK_SET);
+		
+		read(new_fd, buf, 56);
+		write(cur_fd, buf, 56);
+		close(cur_fd);
+		close(new_fd);
+	}
+}
+
+/*
+ * 函数名：void verinfo_write(int type, char name[16], char verinfo[40])
+ * 功能描述：记录版本下载的信息，并将要激活的主程序路径写入到执行路径中。
+ * input：
+ * 		1、type，传入执行的类型，分为下载并激活，下载，激活；
+ *		2、name，主程序文件名；
+ *		3、verinfo，软件版本号。
+ * output：void
+ */
+void firminfo_write(int type, char name[16], char verinfo[40])
+{
+	int cur_fd = -1, old_fd = -1, new_fd = -1;
+	char buf[60];
+
+	memset(buf, 0, 60);
+	
+	if(type == 0)										//下载并激活
+	{
+		new_fd = open("./verinfo/new_firm", O_RDWR | O_TRUNC);
+		cur_fd = open("./verinfo/cur_firm", O_RDWR);
+		old_fd = open("./verinfo/old_firm", O_RDWR);
+		
+		write(new_fd, name, strlen(name));
+		lseek(new_fd, 16, SEEK_SET);
+		write(new_fd, verinfo, strlen(verinfo));
+	
+		read(cur_fd, buf, 56);
+		write(old_fd, buf, 56);
+		close(old_fd);
+
+		memset(buf, 0, 60);
+		lseek(new_fd, 0, SEEK_SET);
+		lseek(cur_fd, 0, SEEK_SET);
+		
+		read(new_fd, buf, 56);
+		write(cur_fd, buf, 56);
+		close(cur_fd);
+		close(new_fd);
+	}else if(type == 1)				//下载
+	{
+		new_fd = open("./verinfo/new_firm", O_RDWR | O_TRUNC);
+		
+		write(new_fd, name, strlen(name));
+		lseek(new_fd, 16, SEEK_SET);
+		write(new_fd, verinfo, strlen(verinfo));
+		close(new_fd);
+	}else												//激活
+	{
+		new_fd = open("./verinfo/new_firm", O_RDWR);
+		cur_fd = open("./verinfo/cur_firm", O_RDWR);
+		old_fd = open("./verinfo/old_firm", O_RDWR);
+	
+		read(cur_fd, buf, 56);
+		write(old_fd, buf, 56);
+		close(old_fd);
+
+		memset(buf, 0, 60);
+		lseek(cur_fd, 0, SEEK_SET);
+		
+		read(new_fd, buf, 56);
+		write(cur_fd, buf, 56);
+		close(cur_fd);
+		close(new_fd);
+	}
+}
 
 /*
  * 函数名：void init(void)

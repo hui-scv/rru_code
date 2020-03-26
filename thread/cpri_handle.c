@@ -144,14 +144,15 @@ int cpri_comch_cfg(int sk, char *msg, const int cpri_num)
 				if(*(char *)src_addr == 0)	//将软件的版本核对结果赋值
 					memcpy((char *)(&softchk[cpri_num]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
 				else						//将固件的版本核对结果赋值
-					memcpy((char *)(&bioschk[cpri_num]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
+					memcpy((char *)(&firmchk[cpri_num]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
 				break;
-			case 504:	//Ir口工作模式，目前固定为普通模式（Ir红外接口）
+			case 504:	//Ir口工作模式，目前固定为普通模式
 				//完成Ir口工作模式配置并应答BBU
-				memcpy((char *)(&irmodecfg[cpri_num]) + 4, (char *)src_addr, sizeof(CL_IRMODECFG) - 
-4);
+				memcpy((char *)(&irmodecfg[cpri_num]) + 4, (char *)src_addr, sizeof(CL_IRMODECFG) - 4);
 				irmodeans[cpri_num].res = irmodecfg[cpri_num].ir_mode;		//这里将设置状态查询中ir口工作模式查询的内容
 				irmodecfgans[cpri_num].res = 0;		//设置参数配置成功
+				irmodecfgans[cpri_num].mray_num = msg_head.ray_id;
+				irmodecfgans[cpri_num].sray_num = 0xFF;	//辅光纤不可用，填写无效字段
 				memcpy(send_msg + msg_head.msg_size, (char *)(&irmodecfgans[cpri_num]), sizeof(CL_IRMODECFGANS));
 				msg_head.msg_size += irmodecfgans[cpri_num].ie_size;
 				break;
@@ -201,8 +202,9 @@ int cpri_comch_cfg(int sk, char *msg, const int cpri_num)
  */
 void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_num)
 {
-	char send_msg[512], server_file[220];
-	int ret = 0, rec_num = 0;
+	char send_msg[512], server_file[220], local_file[26];
+	int ret = 0, rec_num = 0, soft_fd = -1;
+	unsigned int len;
 	fd_set rdfds;
 	struct timeval tv;
 	MSG_HEAD msg_head;
@@ -242,20 +244,41 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 				memcpy((char *)&msg_head, (char *)msg, MSG_HEADSIZE);
 				//进行通信通道建立配置处理
 				ret = cpri_comch_cfg(sk, msg, cpri_num);
-				//返回配置响应
+				//判断通道是否建立成功
 				if(ret >= 0)
 				{
 					if(softchk[cpri_num].res != 0)	//得出版本不一致，需要更新软件
 					{
 						while(1)
 						{
-							//strcat(server_file, softchk[cpri_num].file_path);
-							//strcat(server_file, softchk[cpri_num].file_name);
 							sprintf(server_file, "%s/%s", softchk[cpri_num].file_path, softchk[cpri_num].file_name);
-							ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, softchk[cpri_num].file_name, server_file, cpri_num);
+							sprintf(local_file, "./software/%s", softchk[cpri_num].file_name);
+							ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, local_file, server_file, cpri_num);
 							verupdata[cpri_num].soft_type = softchk[cpri_num].soft_type;
 							if(ret == 0)
+							{
 								verupdata[cpri_num].res = 0;		//文件下载成功
+								soft_fd = open(local_file, O_RDONLY);
+								if(soft_fd < 0)
+								{
+									perror("软件版本更新失败");
+									verupdata[cpri_num].res = 1;
+								}else
+								{
+									len = lseek(soft_fd, 0, SEEK_END);
+									if(len < 0)
+									{
+										close(soft_fd);
+										perror("软件版本更新失败");
+										verupdata[cpri_num].res = 4;
+									}else if(len != softchk[cpri_num].file_length)
+									{
+										close(soft_fd);
+										printf("软件文件长度不一致\n");
+										verupdata[cpri_num].res = 3;
+									}
+								}
+							}
 							else if(ret == -5)
 								verupdata[cpri_num].res = 1;		//文件不存在
 							else if(ret == -8)
@@ -266,27 +289,53 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 								verupdata[cpri_num].res = 4;		//其它原因
 
 							msg_head.msg_id = CPRI_VERUP_IND;
-							msg_head.msg_size = MSG_HEADSIZE + softchk[cpri_num].ie_size;
+							msg_head.msg_size = MSG_HEADSIZE + verupdata[cpri_num].ie_size;
 							memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-							memcpy(send_msg + MSG_HEADSIZE, (char *)(&softchk[cpri_num]), sizeof(CL_SOFTCHK));
+							memcpy(send_msg + MSG_HEADSIZE, (char *)(&verupdata[cpri_num]), sizeof(CL_VERUPDATA));
 							send(sk, send_msg, msg_head.msg_size, 0);
+							
 							if(verupdata[cpri_num].res == 0)
 								break;
 							else
 								sleep(1);
 						}
+
+						memcpy(rrusoftinfo[cpri_num].soft_ver, softchk[cpri_num].file_ver, sizeof(softchk[cpri_num].file_ver));
+						cpri_write_info((char *)&rrusoftinfo[cpri_num], 6);
+						softinfo_write(0, softchk[cpri_num].file_name, softchk[cpri_num].file_ver);
 					}
-					if(bioschk[cpri_num].res != 0)	//得出版本不一致，需要更新固件
+					if(firmchk[cpri_num].res != 0)	//得出版本不一致，需要更新固件
 					{
 						while(1)
 						{
-							//strcat(server_file, bioschk[cpri_num].file_path);
-							//strcat(server_file, bioschk[cpri_num].file_name);
-							sprintf(server_file, "%s/%s", bioschk[cpri_num].file_path, bioschk[cpri_num].file_name);
-							ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, bioschk[cpri_num].file_name, server_file, cpri_num);
-							verupdata[cpri_num].soft_type = bioschk[cpri_num].soft_type;
+							sprintf(server_file, "%s/%s", firmchk[cpri_num].file_path, firmchk[cpri_num].file_name);
+							sprintf(local_file, "./firmware/%s", firmchk[cpri_num].file_name);
+							ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, local_file, server_file, cpri_num);
+							verupdata[cpri_num].soft_type = firmchk[cpri_num].soft_type;
 							if(ret == 0)
+							{
 								verupdata[cpri_num].res = 0;		//文件下载成功
+								soft_fd = open(local_file, O_RDONLY);
+								if(soft_fd < 0)
+								{
+									perror("固件版本更新失败");
+									verupdata[cpri_num].res = 1;
+								}else
+								{
+									len = lseek(soft_fd, 0, SEEK_END);
+									if(len < 0)
+									{
+										close(soft_fd);
+										perror("固件版本更新失败");
+										verupdata[cpri_num].res = 4;
+									}else if(len != firmchk[cpri_num].file_length)
+									{
+										close(soft_fd);
+										printf("固件文件长度不一致\n");
+										verupdata[cpri_num].res = 3;
+									}
+								}
+							}
 							else if(ret == -5)
 								verupdata[cpri_num].res = 1;		//文件不存在
 							else if(ret == -8)
@@ -297,22 +346,45 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 								verupdata[cpri_num].res = 4;		//其它原因
 
 							msg_head.msg_id = CPRI_VERUP_IND;
-							msg_head.msg_size = MSG_HEADSIZE + bioschk[cpri_num].ie_size;
+							msg_head.msg_size = MSG_HEADSIZE + verupdata[cpri_num].ie_size;
 							memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-							memcpy(send_msg + MSG_HEADSIZE, (char *)(&bioschk[cpri_num]), sizeof(CL_SOFTCHK));
+							memcpy(send_msg + MSG_HEADSIZE, (char *)(&verupdata[cpri_num]), sizeof(CL_VERUPDATA));
 							send(sk, send_msg, msg_head.msg_size, 0);
 							if(verupdata[cpri_num].res == 0)
 								break;
 							else
 								sleep(1);
 						}
+
+						memcpy(rrusoftinfo[cpri_num].firm_ver, firmchk[cpri_num].file_ver, sizeof(firmchk[cpri_num].file_ver));
+						cpri_write_info((char *)&rrusoftinfo[cpri_num], 6);
+						firminfo_write(0, firmchk[cpri_num].file_name, firmchk[cpri_num].file_ver);
+						char *data;
+						data = malloc(firmchk[cpri_num].file_length);
+#ifdef PPC
+						fpga_upgrade_firmware(0, data, firmchk[cpri_num].file_length);
+						fpga_upgrade_firmware(1, data, firmchk[cpri_num].file_length);
+#endif
+						free(data);
 					}
-					break;
+
+					if(softchk[cpri_num].res != 0 || firmchk[cpri_num].res != 0)
+					{
+#ifdef PPC
+						eblc_write(0, 0, 0);
+						eblc_write(1, 0, 0);
+#endif
+						sync();
+						exit(-1);
+					}
+					else
+						break;
 				}
 				else
 				{
 					rec_num = 0;
 					memset(msg, 0, sizeof(char) * 512);
+					sleep(1);
 				}
 			}else
 			{
@@ -326,6 +398,7 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&chlinkans[cpri_num]), sizeof(CL_CHLINKANS));
 				send(sk, send_msg, msg_head.msg_size, 0);
+				sleep(1);
 			}
 			
 			cpri_comch_req(sk, cpri_ans, cpri_num);

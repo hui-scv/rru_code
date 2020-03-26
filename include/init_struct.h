@@ -170,7 +170,7 @@ CL_SOFTCHK softchk[] =
 	}
 };
 
-CL_SOFTCHK bioschk[] =
+CL_SOFTCHK firmchk[] =
 {[0 ... 7] = 
 	{
 	.ie_id = 14,

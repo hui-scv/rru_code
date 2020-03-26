@@ -60,7 +60,7 @@ extern CL_RRUMODE rrumode[8];
 
 extern CL_SOFTCHK softchk[8];
 
-extern CL_SOFTCHK bioschk[8];
+extern CL_SOFTCHK firmchk[8];
 
 extern CL_IRMODECFG irmodecfg[8];
 

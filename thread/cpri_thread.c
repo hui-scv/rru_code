@@ -379,11 +379,26 @@ int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cp
 			else
 			{
 				//收到正确的应答后，设置此网口的ip地址并激活它
+				memset(ip, 0, sizeof(ip));
 				sprintf(ip, "%d.%d.%d.%d", cpri_ans->rru_ip[0], cpri_ans->rru_ip[1], cpri_ans->rru_ip[2], cpri_ans->rru_ip[3]);
 				((struct sockaddr_in*)&ifreq.ifr_addr)->sin_family = AF_INET;
 				((struct sockaddr_in*)&ifreq.ifr_addr)->sin_addr.s_addr = inet_addr(ip);
 
 				ret = ioctl(sk, SIOCSIFADDR, &ifreq);
+				if(ret < 0)
+				{
+					perror(device);
+					sleep(3);
+					continue;
+				}
+
+				//收到正确的应答后，设置此网口的子网掩码
+				memset(ip, 0, sizeof(ip));
+				sprintf(ip, "%d.%d.%d.%d", cpri_ans->subnet_mask[0], cpri_ans->subnet_mask[1], cpri_ans->subnet_mask[2], cpri_ans->subnet_mask[3]);
+				printf("mask: %s\n", ip);
+				((struct sockaddr_in*)&ifreq.ifr_addr)->sin_family = AF_INET;
+				((struct sockaddr_in*)&ifreq.ifr_addr)->sin_addr.s_addr = inet_addr(ip);
+				ret = ioctl(sk, SIOCSIFNETMASK, &ifreq);
 				if(ret < 0)
 				{
 					perror(device);

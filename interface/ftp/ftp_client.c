@@ -35,7 +35,7 @@ static int ftpcmd(int gCmdSock, const char *s1, const char * s2, char cpri_num)
 		send(gCmdSock, cmdBuf, strlen(cmdBuf), 0);
 	}
 
-	do{
+	//do{
 		memset(gRevBuf[cpri_num], 0 , 512);
 		strcpy(gRevBuf[cpri_num], "EOF");
 	
@@ -45,7 +45,7 @@ static int ftpcmd(int gCmdSock, const char *s1, const char * s2, char cpri_num)
 		{
 			return -8;
 		}
-	}while(!isdigit(gRevBuf[cpri_num][0]) || gRevBuf[cpri_num][3] != ' ');
+	//}while(!isdigit(gRevBuf[cpri_num][0]) || gRevBuf[cpri_num][3] != ' ');
 	gRevBuf[cpri_num][3] = '\0';
 	iRet = atoi(gRevBuf[cpri_num]);
 	gRevBuf[cpri_num][3] = ' ';

@@ -12,6 +12,8 @@ void read_cpirx(void);
 void read_cpir(void);
 int cprix_write_info(char *msg, int i, int cpri_num);
 int cpri_write_info(char *msg, int i);
+void softinfo_write(int type, char name[16], char verinfo[40]);
+void firminfo_write(int type, char name[16], char verinfo[40]);
 void init(void);
 
 #endif
