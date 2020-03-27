@@ -567,12 +567,20 @@ void firminfo_write(int type, char name[16], char verinfo[40])
 void init(void)
 {
 	struct itimerval new_value;
+	CL_LINKTYPE lt;
 	char msg[512];
 	int i, j, ret;
 
 	//读取记录的cpri相关信息，包括通道建立请求的所有IE消息体，以及cpu占用率的统计周期
 	read_cpir();
 	read_cpirx();
+
+	//在读取上一次通道建立原因后，再将原因重置为上电启动
+	lt.ie_id = 2;
+	lt.ie_size = 9;
+	lt.link_type = 2;
+	lt.reboot_code = 0;
+	cpri_write_info((char *)&lt, 2);
 	
 	//外设驱动初始化
 	driver_init();

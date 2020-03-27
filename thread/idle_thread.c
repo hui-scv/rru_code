@@ -80,6 +80,26 @@ static void send_err(int ala_code, int ala_subcode, int ala_flag, char *stamp, c
 }
 
 /*
+ * 函数名：static void send_beat(int cpri_num)
+ * 功能描述：发送rru的心跳包。
+ * input：void
+ * output：void
+ */
+static void send_beat(int cpri_num)
+{
+	MSG_HEAD msg_head;
+	
+	msg_head.msg_id = CPRI_RRUBEAT_MSG;
+	msg_head.msg_size = MSG_HEADSIZE;
+	msg_head.rru_id = cprians[cpri_num].rru_id;
+	msg_head.bbu_id = cprians[cpri_num].bbu_id;
+	msg_head.ray_id = cprians[cpri_num].bbu_num;
+	msg_head.inc_num = 0;
+	
+	send(sock[cpri_num], &msg_head, msg_head.msg_size, 0);
+}
+
+/*
  * 函数名：void idle_handle(void)
  * 功能描述：空闲任务函数，用于监控系统状态，记录错误信息。
  * input：void
@@ -99,11 +119,12 @@ void idle_handle(void)
 	{
 		for(cpri_num = 0; cpri_num < 8; cpri_num++)
 		{
-			sleep(1);		//每隔8s检测一个通道的状态
 			if(chlinkans[cpri_num].res == 1)	//如果通道未建立连接，则不检测此通道的状态
 				continue;
 
-			sprintf(file_name, "/cpri%d_error_log", cpri_num);
+			send_beat(cpri_num);	//发送rru的心跳包
+
+			sprintf(file_name, "./log/cpri%d_error_log", cpri_num);
 			fd = open(file_name, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
 			if(fd < 0)
 			{
@@ -437,5 +458,6 @@ void idle_handle(void)
 			
 			close(fd);
 		}
+		sleep(3);		//每隔3s检测所有通道的状态，并发送RRU心跳包
 	}
 }

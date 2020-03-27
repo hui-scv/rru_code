@@ -115,10 +115,34 @@ CHLINK:
 			memset(msg, 0, sizeof(char) * 512);
  		}else
  		{
-			rec_num += recv(sock[cpri_num], msg + rec_num, 512, 0);
+ 			//只接收消息体的包头
+			//rec_num += recv(sock[cpri_num], msg + rec_num, 512, 0);
+			rec_num += recv(sock[cpri_num], msg + rec_num, MSG_HEADSIZE, 0);
+			if(rec_num < MSG_HEADSIZE)
+				continue;
+			else
+			{
+				//包头接收完毕后，再根据包头中的size来接收一个完整的消息体。防止粘包现象。
+				while(1)
+				{
+					if(rec_num < ((MSG_HEAD *)msg)->msg_size)
+					{
+						ret = rec_timeout(sock[cpri_num], 3);
+						if(ret < 0)
+						{
+							//接收超时
+							rec_num = 0;
+							memset(msg, 0, sizeof(char) * 512);
+							break;
+				 		}else
+							rec_num += recv(sock[cpri_num], msg + rec_num, ((MSG_HEAD *)msg)->msg_size - rec_num, 0);
+					}else
+						break;
+				}
+			}
  		}
 
-		//num用于记录多少次没有接收到心跳包，如果连续3次没有接收到心跳包，则次cpri接口重启
+		//num用于记录多少次没有接收到心跳包，如果连续3次没有接收到心跳包，则此cpri接口重启
 		num++;
 		//用于判断一个消息体中的数据是否全部接收完毕
 		if(rec_num >= ((MSG_HEAD *)msg)->msg_size && ((MSG_HEAD *)msg)->msg_size != 0)
@@ -131,10 +155,19 @@ CHLINK:
 
 		if(num == 3)
 		{
-			//心跳死亡，跳转到重新初始化cpri
-			num = 0;
+			//BBU心跳死亡，跳转到重新初始化cpri
+			/*num = 0;
 			shutdown(sock[cpri_num], SHUT_RDWR);
-			goto CHLINK;
+			goto CHLINK;*/
+			linktype[cpri_num].link_type = 1;
+			linktype[cpri_num].reboot_code = 1;
+			cpri_write_info((char *)&linktype[cpri_num], 2);
+#ifdef PPC
+			eblc_write(0, 0, 0);	//复位FPGA
+			eblc_write(1, 0, 0);
+#endif
+			sync();
+			exit(-1);		//退出主程序，返回父进程，然后父进程再执行当前的主程序路径的程序
 		}
 	}
 }

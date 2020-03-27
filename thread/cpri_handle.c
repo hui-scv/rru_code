@@ -203,7 +203,7 @@ int cpri_comch_cfg(int sk, char *msg, const int cpri_num)
 void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_num)
 {
 	char send_msg[512], server_file[220], local_file[26];
-	int ret = 0, rec_num = 0, soft_fd = -1;
+	int ret = 0, rec_num = 0, soft_fd = -1, firm_fd = -1;
 	unsigned int len;
 	fd_set rdfds;
 	struct timeval tv;
@@ -211,6 +211,7 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
 	memset(server_file, 0, sizeof(char)*220);
+	memset(local_file, 0, sizeof(char)*16);
 	//cpri发送通信链路建立的消息集合请求
 	cpri_comch_req(sk, cpri_ans, cpri_num);
 
@@ -276,7 +277,8 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 										close(soft_fd);
 										printf("软件文件长度不一致\n");
 										verupdata[cpri_num].res = 3;
-									}
+									}else
+										close(soft_fd);
 								}
 							}
 							else if(ret == -5)
@@ -300,6 +302,7 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 								sleep(1);
 						}
 
+						//将软件版本号记录下来，并将执行主程序的路径设为下载下来的程序路径
 						memcpy(rrusoftinfo[cpri_num].soft_ver, softchk[cpri_num].file_ver, sizeof(softchk[cpri_num].file_ver));
 						cpri_write_info((char *)&rrusoftinfo[cpri_num], 6);
 						softinfo_write(0, softchk[cpri_num].file_name, softchk[cpri_num].file_ver);
@@ -315,25 +318,26 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 							if(ret == 0)
 							{
 								verupdata[cpri_num].res = 0;		//文件下载成功
-								soft_fd = open(local_file, O_RDONLY);
-								if(soft_fd < 0)
+								firm_fd = open(local_file, O_RDONLY);
+								if(firm_fd < 0)
 								{
 									perror("固件版本更新失败");
 									verupdata[cpri_num].res = 1;
 								}else
 								{
-									len = lseek(soft_fd, 0, SEEK_END);
+									len = lseek(firm_fd, 0, SEEK_END);
 									if(len < 0)
 									{
-										close(soft_fd);
+										close(firm_fd);
 										perror("固件版本更新失败");
 										verupdata[cpri_num].res = 4;
 									}else if(len != firmchk[cpri_num].file_length)
 									{
-										close(soft_fd);
+										close(firm_fd);
 										printf("固件文件长度不一致\n");
 										verupdata[cpri_num].res = 3;
-									}
+									}else
+										close(firm_fd);
 								}
 							}
 							else if(ret == -5)
@@ -356,26 +360,31 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 								sleep(1);
 						}
 
+						//将固件版本号记录下来，并将执行主固件的路径设为下载下来的固件路径,最后将固件写入到fpga中
 						memcpy(rrusoftinfo[cpri_num].firm_ver, firmchk[cpri_num].file_ver, sizeof(firmchk[cpri_num].file_ver));
 						cpri_write_info((char *)&rrusoftinfo[cpri_num], 6);
 						firminfo_write(0, firmchk[cpri_num].file_name, firmchk[cpri_num].file_ver);
+						
 						char *data;
 						data = malloc(firmchk[cpri_num].file_length);
+						firm_fd = open(local_file, O_RDONLY);
+						read(firm_fd, data, firmchk[cpri_num].file_length);
 #ifdef PPC
 						fpga_upgrade_firmware(0, data, firmchk[cpri_num].file_length);
 						fpga_upgrade_firmware(1, data, firmchk[cpri_num].file_length);
 #endif
 						free(data);
+						close(firm_fd);
 					}
 
 					if(softchk[cpri_num].res != 0 || firmchk[cpri_num].res != 0)
 					{
 #ifdef PPC
-						eblc_write(0, 0, 0);
+						eblc_write(0, 0, 0);	//复位FPGA
 						eblc_write(1, 0, 0);
 #endif
 						sync();
-						exit(-1);
+						exit(-1);		//退出主程序，返回父进程，然后父进程再执行当前的主程序路径的程序
 					}
 					else
 						break;
@@ -421,76 +430,96 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
  */
 int cpri_verdown_que(int sk, char *msg, const int cpri_num)
 {
-	char *src_addr, send_msg[512], server_file[220];
+	char *src_addr, send_msg[512], server_file[220], local_file[26];
 	unsigned short ie_id;
-	int size = 0, ret = 0, count = 0;
+	int size = 0, ret = 0, count = 0, i = 0;
 	MSG_HEAD msg_head;
 
 	memset(server_file, 0, sizeof(char)*220);
+	memset(local_file, 0, sizeof(char)*16);
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);	//将接收到的消息头信息存入msg_head结构体
 	
 	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;	//得到所有ie消息体的总大小
-	size = *(unsigned short *)(msg + 2 + MSG_HEADSIZE);	//得到版本下载请求ie消息体的大小
-	ie_id = *(unsigned short *)(msg + MSG_HEADSIZE);	//得到此ie的id号
-	src_addr = msg + 4 + MSG_HEADSIZE;
+	msg_head.msg_id = CPRI_VERDOWN_ANS;
+	msg_head.msg_size = MSG_HEADSIZE;
 
-	if(ie_id == 14 && count == size)
+	for(i = 0; i < 2; i++)
 	{
-		memcpy((char *)(&softchk[cpri_num]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
-		/*if(*(char *)src_addr == 0)	//将软件的版本核对结果赋值
-			memcpy((char *)(&softchk[0]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
-		else						//将固件的版本核对结果赋值
-			memcpy((char *)(&bioschk[0]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
-		break;*/
-		if(softchk[cpri_num].res == 0)		//判断接收到的版本下载请求ie，看软件版本是否一致
-		{
-			verdownans[cpri_num].soft_type = softchk[cpri_num].soft_type;
-			verdownans[cpri_num].res = 1;		//拒绝版本下载，在这里给出拒绝原因，因为软件版本一致
-			msg_head.msg_id = CPRI_VERDOWN_ANS;
-			msg_head.msg_size = MSG_HEADSIZE + verdownans[cpri_num].ie_size;
-			memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-			memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownans[cpri_num]), sizeof(VD_VERDOWNANS));
-			send(sk, send_msg, msg_head.msg_size, 0);	//发送版本下载应答消息体
-			ret = 0;
-		}else
-		{
-			verdownans[cpri_num].soft_type = softchk[cpri_num].soft_type;
-			verdownans[cpri_num].res = 0;		//可以进行版本下载
-			msg_head.msg_id = CPRI_VERDOWN_ANS;
-			msg_head.msg_size = MSG_HEADSIZE + verdownans[cpri_num].ie_size;
-			memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-			memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownans[cpri_num]), sizeof(VD_VERDOWNANS));
-			send(sk, send_msg, msg_head.msg_size, 0);	//发送版本下载应答消息体
+		ie_id = *(unsigned short *)(msg + size + MSG_HEADSIZE);
+		src_addr = msg + size + 4 + MSG_HEADSIZE;
+		size += *(unsigned short *)(msg + size + 2 + MSG_HEADSIZE);	//累计已经读取出的ie的长度
 
-			//进行ftp下载文件
-			//strcat(server_file, softchk[cpri_num].file_path);
-			//strcat(server_file, softchk[cpri_num].file_name);
-			sprintf(server_file, "%s/%s", softchk[cpri_num].file_path, softchk[cpri_num].file_name);
-			ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, softchk[cpri_num].file_name, server_file, 0);
-			verdownres[cpri_num].soft_type = softchk[cpri_num].soft_type;
-			if(ret == 0)
-				verdownres[cpri_num].res = 0;		//文件下载成功
-			else if(ret == -5)
-				verdownres[cpri_num].res = 1;		//文件不存在
-			else if(ret == -8)
-				verdownres[cpri_num].res = 2;		//文件下载超时
-			else if(ret == -9)
-				verdownres[cpri_num].res = 3;		//文件过大
-			else
-				verdownres[cpri_num].res = 4;		//其它原因
-								
-			msg_head.msg_id = CPRI_VERDOWN_IND;
-			msg_head.msg_size = MSG_HEADSIZE + verdownres[cpri_num].ie_size;
-			memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-			memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownres[cpri_num]), sizeof(VD_VERDOWNRES));
-			send(sk, send_msg, msg_head.msg_size, 0);	//发送版本下载结果指示的消息体
-			ret = 1;
-		}
-	}else
-		ret = -1;
+		if(ie_id == 14)
+		{
+			memcpy((char *)(&softchk[cpri_num]) + 4, (char *)src_addr, sizeof(CL_SOFTCHK) - 4);
+
+			if(softchk[cpri_num].res == 0)		//判断接收到的版本下载请求ie，看软件版本是否一致
+			{
+				verdownans[cpri_num].soft_type = softchk[cpri_num].soft_type;
+				verdownans[cpri_num].res = 1;		//拒绝版本下载，在这里给出拒绝原因，因为软件版本一致
+				msg_head.msg_id = CPRI_VERDOWN_ANS;
+				msg_head.msg_size = MSG_HEADSIZE + verdownans[cpri_num].ie_size;
+				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownans[cpri_num]), sizeof(VD_VERDOWNANS));
+				send(sk, send_msg, msg_head.msg_size, 0);	//发送版本下载应答消息体
+				ret = 0;
+			}else
+			{
+				verdownans[cpri_num].soft_type = softchk[cpri_num].soft_type;
+				verdownans[cpri_num].res = 0;		//可以进行版本下载
+				msg_head.msg_id = CPRI_VERDOWN_ANS;
+				msg_head.msg_size = MSG_HEADSIZE + verdownans[cpri_num].ie_size;
+				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownans[cpri_num]), sizeof(VD_VERDOWNANS));
+				send(sk, send_msg, msg_head.msg_size, 0);	//发送版本下载应答消息体
+
+				//进行ftp下载文件
+				if(verdownans[cpri_num].soft_type == 0)
+					sprintf(local_file, "./software/%s", softchk[cpri_num].file_name);
+				else
+					sprintf(local_file, "./firmware/%s", softchk[cpri_num].file_name);
+				sprintf(server_file, "%s/%s", softchk[cpri_num].file_path, softchk[cpri_num].file_name);
+				ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, local_file, server_file, cpri_num);
+				verdownres[cpri_num].soft_type = softchk[cpri_num].soft_type;
+				if(ret == 0)
+				{
+					verdownres[cpri_num].res = 0;		//文件下载成功
+					if(verdownans[cpri_num].soft_type == 0)
+						softinfo_write(1, softchk[cpri_num].file_name, softchk[cpri_num].file_ver);
+					else
+						firminfo_write(1, softchk[cpri_num].file_name, softchk[cpri_num].file_ver);
+				}
+				else if(ret == -5)
+					verdownres[cpri_num].res = 1;		//文件不存在
+				else if(ret == -8)
+					verdownres[cpri_num].res = 2;		//文件下载超时
+				else if(ret == -9)
+					verdownres[cpri_num].res = 3;		//文件过大
+				else
+					verdownres[cpri_num].res = 4;		//其它原因
+									
+				msg_head.msg_id = CPRI_VERDOWN_IND;
+				msg_head.msg_size = MSG_HEADSIZE + verdownres[cpri_num].ie_size;
+				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
+				memcpy(send_msg + MSG_HEADSIZE, (char *)(&verdownres[cpri_num]), sizeof(VD_VERDOWNRES));
+				send(sk, send_msg, msg_head.msg_size, 0);	//发送版本下载结果指示的消息体
+				//ret = 1;
+			}
+		}else
+			ret = -1;
+
+		if(size == count || ret == -1)
+			break;
+	}
 	
-	return ret;
+	if(size == count && ret != -1)
+	{
+		return 0;
+	}else
+	{
+		return -1;
+	}
 }
 
 
@@ -507,11 +536,13 @@ int cpri_verdown_que(int sk, char *msg, const int cpri_num)
  */
 int cpri_veract_ind(int sk, char *msg, const int cpri_num)
 {
-	char *src_addr, send_msg[512];
+	char *src_addr, *data, send_msg[512], ver_info[40], name[16], local_file[26];
 	unsigned short ie_id;
-	int size = 0, ret = 0, count, flag[2] = {0, 0};
+	int size = 0, ret = 0, count = 0, flag[2] = {0, 0}, fd = -1, len = 0;
 	MSG_HEAD msg_head;
 
+	memset(local_file, 0, sizeof(local_file));
+	memset(name, 0, sizeof(name));
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);	//将接收到的消息头信息存入msg_head结构体
 	
@@ -520,23 +551,88 @@ int cpri_veract_ind(int sk, char *msg, const int cpri_num)
 	ie_id = *(unsigned short *)(msg + MSG_HEADSIZE);
 	src_addr = msg + 4 + MSG_HEADSIZE;
 
+	msg_head.msg_id = CPRI_VERACT_ANS;
+	msg_head.msg_size = MSG_HEADSIZE;
+
 	if(ie_id == 6 && count == size)
 	{
-		memcpy((char *)(&rrusoftinfo[cpri_num]) + 4, (char *)src_addr, sizeof(CL_RRUSOFTINFO) - 4);
-		/***********************************
-		进行激活操作
-		***********************************/
-		msg_head.msg_id = CPRI_VERACT_ANS;
-		msg_head.msg_size = MSG_HEADSIZE + 2 * rruveractans[cpri_num].ie_size;
+		//memcpy((char *)(&rrusoftinfo[cpri_num]) + 4, (char *)src_addr, sizeof(CL_RRUSOFTINFO) - 4);
+		if(strncmp(src_addr, "NA", 2))
+		{
+			memset(ver_info, 0, sizeof(ver_info));
+			rruveractans[cpri_num].soft_type = 0;		//软件激活操作
+			
+			fd = open("./verinfo/new_soft", O_RDONLY);
+			lseek(fd, 16, SEEK_SET);
+			read(fd, ver_info, sizeof(ver_info));
+			close(fd);
+			
+			if(strncmp(src_addr, ver_info, strlen(ver_info)) == 0)
+			{
+				memcpy(rrusoftinfo[cpri_num].soft_ver, ver_info, sizeof(ver_info));
+				cpri_write_info((char *)&rrusoftinfo[cpri_num], 6);		//记录软件版本号
+				softinfo_write(2, NULL, NULL);	//进行激活操作
+				
+				rruveractans[cpri_num].res = 0;
+				flag[0] = 1;		//版本需要激活
+			}else
+				rruveractans[cpri_num].res = 1;
+
+			memcpy(send_msg + msg_head.msg_size, (char *)(&rruveractans[cpri_num]), sizeof(VA_RRUVERACTANS));
+			msg_head.msg_size += rruveractans[cpri_num].ie_size;
+		}
+		
+		if(strncmp(src_addr + 40, "NA", 2))
+		{
+			memset(ver_info, 0, sizeof(ver_info));
+			rruveractans[cpri_num].soft_type = 1;		//固件激活操作
+			
+			fd = open("./verinfo/new_firm", O_RDONLY);
+			read(fd, name, sizeof(name));
+			sprintf(local_file, "./firmware/%s", name);
+			lseek(fd, 16, SEEK_SET);
+			read(fd, ver_info, sizeof(ver_info));
+			close(fd);
+			
+			if(strncmp(src_addr + 40, ver_info, strlen(ver_info)) == 0)
+			{
+				memcpy(rrusoftinfo[cpri_num].firm_ver, ver_info, sizeof(ver_info));
+				cpri_write_info((char *)&rrusoftinfo[cpri_num], 6);		//记录软件版本号
+				firminfo_write(2, NULL, NULL);	//进行激活操作
+
+				fd = open(local_file, O_RDONLY);
+				len = lseek(fd, 0, SEEK_END);
+				data = malloc(len);
+				read(fd, data, len);
+#ifdef PPC
+				fpga_upgrade_firmware(0, data, len);
+				fpga_upgrade_firmware(1, data, len);
+#endif
+				free(data);
+				close(fd);
+				
+				rruveractans[cpri_num].res = 0;
+				flag[1] = 1;		//版本需要激活
+			}else
+				rruveractans[cpri_num].res = 1;
+
+			memcpy(send_msg + msg_head.msg_size, (char *)(&rruveractans[cpri_num]), sizeof(VA_RRUVERACTANS));
+			msg_head.msg_size += rruveractans[cpri_num].ie_size;
+		}
+		
 		memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
-		rruveractans[cpri_num].soft_type = 0;	//设置激活应答的类型是软件
-		rruveractans[cpri_num].res = flag[0];		//设置软件激活的结果
-		memcpy(send_msg + MSG_HEADSIZE, (char *)(&rruveractans[cpri_num]), sizeof(VA_RRUVERACTANS));
-		rruveractans[cpri_num].soft_type = 1;	//设置激活应答的类型是固件
-		rruveractans[cpri_num].res = flag[1];		//设置固件激活的结果
-		memcpy(send_msg + MSG_HEADSIZE + rruveractans[cpri_num].ie_size, (char *)(&rruveractans[cpri_num]), sizeof(VA_RRUVERACTANS));
 		send(sk, send_msg, msg_head.msg_size, 0);	//发送版本激活结果指示的消息体
-		ret = 0;
+
+		if(flag[0] == 1 || flag[1] == 1)
+		{
+#ifdef PPC
+			eblc_write(0, 0, 0);	//复位FPGA
+			eblc_write(1, 0, 0);
+#endif
+			sync();
+			exit(-1);		//退出主程序，返回父进程，然后父进程再执行当前的主程序路径的程序
+		}else
+			ret = -1;
 	}else
 		ret = -1;
 	
@@ -582,7 +678,7 @@ int cpri_state_que(int sk, char *msg, const int cpri_num)
 			case 302:		//射频通道状态查询
 				memcpy((char *)(&rfchsta[cpri_num]) + 4, (char *)src_addr, sizeof(SQ_RFCHSTA) - 4);	//取得查询请求的消息体内容
 #ifdef PPC
-				status_read(cpri_num/4, &status);	//等待给出使能读取接口
+				status_read(cpri_num/4, &status);				//读取FPGA状态
 				ad_enable_read(cpri_num/4, &ad_en_sta);
 				da_enable_read(cpri_num/4, &da_en_sta);
 				ad_val = (int)ad_en_sta.ch1_en;
@@ -592,24 +688,24 @@ int cpri_state_que(int sk, char *msg, const int cpri_num)
 				{
 					rfchans[cpri_num].ul_sta = 0;
 				}
-				else		//上行通道已使能
+				else											//上行通道已使能
 				{
 					if(status.ad_work_state == 1)
-						rfchans[cpri_num].ul_sta = 1;	//上行通道无故障
+						rfchans[cpri_num].ul_sta = 1;			//上行通道无故障
 					else
-						rfchans[cpri_num].ul_sta = 2;	//上行通道有故障
+						rfchans[cpri_num].ul_sta = 2;			//上行通道有故障
 				}
 				
 				if((da_val & (0x01<<(cpri_num%4))) == 0)		//下行通道未使能
 				{
 					rfchans[cpri_num].dl_sta = 0;
 				}
-				else		//下行通道已使能
+				else											//下行通道已使能
 				{
 					if(status.da_work_state == 1)
-						rfchans[cpri_num].dl_sta = 1;	//下行通道无故障
+						rfchans[cpri_num].dl_sta = 1;			//下行通道无故障
 					else
-						rfchans[cpri_num].dl_sta = 2;	//下行通道有故障
+						rfchans[cpri_num].dl_sta = 2;			//下行通道有故障
 				}
 				rfchans[cpri_num].ch_num = rfchsta[cpri_num].ch_num;	//设置要查询的射频通道号
 				//memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
@@ -1064,11 +1160,42 @@ int cpri_paracfg_que(int sk, char *msg, const int cpri_num)
 				break;
 			case 507:		//参数配置-天线配置
 				memcpy((char *)(&antcfg[cpri_num]) + 4, (char *)src_addr, sizeof(PC_ANTCFG) - 4);	//取得参数配置的消息体内容
-				/************************************
-				天线配置，这里也不知道怎么去配
-				************************************/
+				//天线配置，和上面的射频配置一样
+				if(antcfg[cpri_num].dl_antsta == 0)	//下行使能
+				{	
+#ifdef PPC
+					//da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 0);
+					antcfgans[cpri_num].res = da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 1);
+					if(antcfgans[cpri_num].res == RET_OK)
+						antcfgans[cpri_num].res = 0;
+					else
+						antcfgans[cpri_num].res = 1;
+#endif
+				}else											//下行通道失能
+				{
+#ifdef PPC
+					//da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 0);
+					antcfgans[cpri_num].res = da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 0);
+					if(antcfgans[cpri_num].res == RET_OK)
+						antcfgans[cpri_num].res = 0;
+					else
+						antcfgans[cpri_num].res = 1;
+#endif
+				}
+				if(rfchans[cpri_num].ul_sta != 0)	//上行使能
+				{	
+#ifdef PPC
+					if(ad_enable(cpri_num/4, cpri_num%4+1, 1) == RET_ERR)
+						antcfgans[cpri_num].res = 1;
+#endif
+				}else											//上行通道失能
+				{
+#ifdef PPC
+					if(ad_enable(cpri_num/4, cpri_num%4+1, 0) == RET_ERR)
+						antcfgans[cpri_num].res = 1;
+#endif
+				}
 				antcfgans[cpri_num].ant_num = antcfg[cpri_num].ant_num;
-				antcfgans[cpri_num].res = 0;		//设置参数配置成功
 				//memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + msg_head.msg_size, (char *)(&antcfgans[cpri_num]), sizeof(PC_ANTCFGANS));
 				msg_head.msg_size += antcfgans[cpri_num].ie_size;
@@ -1187,7 +1314,7 @@ void cpri_get_ala(AR_ALAQUE *ala_que, AR_ALAREP *ala_rep, const int cpri_num)
 
 	for(i = 0; i < 23; i++)
 	{
-		if(ala_que->ala_code == 0)
+		if(ala_que->ala_code == 0xFFFFFFFF)
 		{
 
 		}else
@@ -1278,7 +1405,7 @@ int cpri_ala_que(int sk, char *msg, const int cpri_num)
  */
 int cpri_logup_que(int sk, char *msg, const int cpri_num)
 {
-	char *src_addr, send_msg[512], server_file[220], err_file[20];
+	char *src_addr, send_msg[512], server_file[220], err_file[26];
 	unsigned short ie_id;
 	int size = 0, ret = 0, count;
 	MSG_HEAD msg_head;
@@ -1296,15 +1423,16 @@ int cpri_logup_que(int sk, char *msg, const int cpri_num)
 		memcpy((char *)(&upque[cpri_num]) + 4, (char *)src_addr, sizeof(LOG_UPQUE) - 4);	//取得参数配置的消息体内容
 		msg_head.msg_id = CPRI_LOGUP_ANS;
 		msg_head.msg_size = MSG_HEADSIZE + upans[cpri_num].ie_size;
-		//日志上传请求，这里判断日志是否存在
 		upans[cpri_num].log_type = upque[cpri_num].log_type;
-		sprintf(err_file, "/cpri%d_error_log", cpri_num);
+		//日志上传请求，这里判断日志是否存在
+		sprintf(err_file, "./log/cpri%d_error_log", cpri_num);
 		if(upans[cpri_num].log_type == 0)
 			upans[cpri_num].res = access(err_file, F_OK);
 		else if(upque[cpri_num].log_type == 1)
-			upans[cpri_num].res = access("usr.txt", F_OK);
+			upans[cpri_num].res = access("./log/usr.txt", F_OK);
 		else
-			upans[cpri_num].res = access("sys.txt", F_OK);
+			upans[cpri_num].res = access("./log/sys.txt", F_OK);
+		
 		if(upans[cpri_num].res == -1)
 			upans[cpri_num].res = 1;
 		memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
@@ -1319,11 +1447,11 @@ int cpri_logup_que(int sk, char *msg, const int cpri_num)
 			//strcat(server_file, upque[cpri_num].bbu_file);
 			sprintf(server_file, "%s/%s", upque[cpri_num].bbu_path, upque[cpri_num].bbu_file);
 			if(upres[cpri_num].log_type == 0)
-				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, err_file, server_file, 0);
+				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, err_file, server_file, cpri_num);
 			else if(upque[cpri_num].log_type == 1)
-				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "usr.txt", server_file, 0);
+				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "./log/usr.txt", server_file, cpri_num);
 			else
-				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "sys.txt", server_file, 0);
+				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "./log/sys.txt", server_file, cpri_num);
 
 			if(ret == 0)
 				upres[cpri_num].res = 0;		//文件下载成功
@@ -1380,16 +1508,20 @@ int cpri_reset_ind(int sk, char *msg, const int cpri_num)
 	if(ie_id == 1301 && count == size)
 	{
 		/*******************************
-		进行RRU的复位操作，这里的复位是指整机复位还是单个cpri口进行复位？
+		进行RRU的软件复位操作
 		*******************************/
-
-		ret = 0;
+		free(msg);
+#ifdef PPC
+		eblc_write(0, 0, 0);	//复位FPGA
+		eblc_write(1, 0, 0);
+#endif
+		sync();
+		exit(-1);		//退出主程序，返回父进程，然后父进程再执行当前的主程序路径的程序
 	}else
 		ret = -1;
 	
 	return ret;
 }
-
 
 /*
  * 函数名：int cpri_bbubeat_msg(int sk, char *msg, int *num)
@@ -1404,20 +1536,10 @@ int cpri_reset_ind(int sk, char *msg, const int cpri_num)
  */
 int cpri_bbubeat_msg(int sk, char *msg, int *num, const int cpri_num)
 {
-	int ret = 0;
-	MSG_HEAD msg_head;
-
-	memset(&msg_head, 0, sizeof(MSG_HEAD));
-	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
-	msg_head.msg_id = CPRI_RRUBEAT_MSG;
-	msg_head.msg_size = MSG_HEADSIZE;
-
 	//清零num
 	*num = 0;
-
-	ret = send(sk, &msg_head, msg_head.msg_size, 0);
 	
-	return ret;
+	return 0;
 }
 
 
