@@ -594,22 +594,12 @@ void init(void)
 	//绑定信号发生时的处理函数
 	signal(SIGALRM, signalHandler);
 
-	//根据cpu占用率统计周期是否设置
-	if(ratecycans[0].rate_cyc <= 0)
-	{
-		new_value.it_value.tv_sec = 1;
-		new_value.it_value.tv_usec = 0;
-		new_value.it_interval.tv_sec = 10;
-		new_value.it_interval.tv_usec = 0;
-		ret = setitimer(ITIMER_REAL, &new_value, NULL);
-	}else
-	{
-		new_value.it_value.tv_sec = 1;
-		new_value.it_value.tv_usec = 0;
-		new_value.it_interval.tv_sec = ratecycans[0].rate_cyc;
-		new_value.it_interval.tv_usec = 0;
-		ret = setitimer(ITIMER_REAL, &new_value, NULL);
-	}
+	//根据cpu占用率统计周期是否设置，rate_cyc初始为10
+	new_value.it_value.tv_sec = 1;
+	new_value.it_value.tv_usec = 0;
+	new_value.it_interval.tv_sec = ratecycans[0].rate_cyc;
+	new_value.it_interval.tv_usec = 0;
+	ret = setitimer(ITIMER_REAL, &new_value, NULL);
 
 	if(ret == -1)
 		perror("read cpu rate");

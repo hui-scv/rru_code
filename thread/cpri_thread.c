@@ -54,7 +54,7 @@ void *cpri_thread(void *cpri_n)
 {
 	unsigned short head, ie_id, ie_size;
 	char *msg;
-	int ret = 0, rec_num = 0, num = 0, cpri_num = 0;
+	int ret = 0, rec_num = 0, beat_num = 0, cpri_num = 0;
 
 	//定义消息头
 	RRU_HEAD cpri_que;
@@ -143,17 +143,17 @@ CHLINK:
  		}
 
 		//num用于记录多少次没有接收到心跳包，如果连续3次没有接收到心跳包，则此cpri接口重启
-		num++;
+		beat_num++;
 		//用于判断一个消息体中的数据是否全部接收完毕
 		if(rec_num >= ((MSG_HEAD *)msg)->msg_size && ((MSG_HEAD *)msg)->msg_size != 0)
 		{
 			//进入此函数，将对照不同的信息体类型进入到不同的处理函数中去
-			cpri_handle(msg, sock[cpri_num], &num, cpri_num);
+			cpri_handle(msg, sock[cpri_num], &beat_num, cpri_num);
 			rec_num = 0;
 			memset(msg, 0, sizeof(char) * 512);
 		}
 
-		if(num == 3)
+		if(beat_num == 3)
 		{
 			//BBU心跳死亡，跳转到重新初始化cpri
 			/*num = 0;

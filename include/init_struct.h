@@ -412,6 +412,7 @@ PQ_RATECYCANS ratecycans[] =
 	{
 	.ie_id = 452,
 	.ie_size = 8,
+	.rate_cyc = 10,
 	}
 };
 
