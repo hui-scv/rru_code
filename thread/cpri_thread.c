@@ -36,8 +36,8 @@ BBU_HEAD cprians[8];
 
 int cpri_creatsk(const int type, const int cpri_num);
 int cpri_handle(char *msg, int sk, int *num, const int cpri_num);
-int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr, const int cpri_num);
-int cpri_tcpcon(const BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr, const int cpri_num);
+int cpritobbu_req(BBU_HEAD *cpri_ans, const int cpri_num);
+int cpri_tcpcon(const BBU_HEAD cpri_ans, const int cpri_num);
 int rec_timeout(int sk, const int sec);
 
 
@@ -55,28 +55,17 @@ void *cpri_thread(void *cpri_n)
 	unsigned short head, ie_id, ie_size;
 	char *msg;
 	int ret = 0, rec_num = 0, beat_num = 0, cpri_num = 0;
-
 	//定义消息头
-	RRU_HEAD cpri_que;
 	BBU_HEAD cpri_ans;
-	//定义socket编程使用的socket地址相关信息结构体
-	struct sockaddr_in cpri_addr;
 	//定义cpri状态结构体
 	CPRI_STATUS_S cpri_status;
 
 	//为消息指针分配内存空间
 	msg = (char *)malloc(sizeof(char) * 512);
-CHLINK:
 	//将各种结构体清零
-	memset(&cpri_addr, 0, sizeof(struct sockaddr_in));
-	memset(&cpri_que, 0, sizeof(RRU_HEAD));
 	memset(&cpri_ans, 0, sizeof(BBU_HEAD));
 	memset(msg, 0, sizeof(char) * 512);
 	
-	//指定socket套接字所采用的协议簇是IPv4
-	cpri_addr.sin_family = AF_INET;
-	//指定服务器端口号为33333
-	cpri_addr.sin_port = htons(SERVER_PORT);
 	//获取当前cpri的通道号
 	cpri_num = *(int *)cpri_n;
 
@@ -92,12 +81,11 @@ CHLINK:
 #endif
 
 	//RRU向BBU发送UDP广播，获取IP地址并设置
-	cpritobbu_req(&cpri_que, &cpri_ans, &cpri_addr, cpri_num);
+	cpritobbu_req(&cpri_ans, cpri_num);
 	memcpy(&cprians[cpri_num], &cpri_ans, sizeof(BBU_HEAD));
 
 	//RRU向BBU发起TCP链接请求并完成链接
-	cpri_addr.sin_port = htons(30000);
-	sock[cpri_num] = cpri_tcpcon(cpri_ans, &cpri_addr, cpri_num);
+	sock[cpri_num] = cpri_tcpcon(cpri_ans, cpri_num);
 
 	//RRU向BBU发起通信通道链路建立请求,完成RRU通信通道的配置以及返回配置响应
 	cpri_comch_init(sock[cpri_num], msg, cpri_ans, cpri_num);
@@ -116,8 +104,7 @@ CHLINK:
  		}else
  		{
  			//只接收消息体的包头
-			//rec_num += recv(sock[cpri_num], msg + rec_num, 512, 0);
-			rec_num += recv(sock[cpri_num], msg + rec_num, MSG_HEADSIZE, 0);
+			rec_num += recv(sock[cpri_num], msg + rec_num, MSG_HEADSIZE - rec_num, 0);
 			if(rec_num < MSG_HEADSIZE)
 				continue;
 			else
@@ -156,9 +143,6 @@ CHLINK:
 		if(beat_num == 3)
 		{
 			//BBU心跳死亡，跳转到重新初始化cpri
-			/*num = 0;
-			shutdown(sock[cpri_num], SHUT_RDWR);
-			goto CHLINK;*/
 			linktype[cpri_num].link_type = 1;
 			linktype[cpri_num].reboot_code = 1;
 			cpri_write_info((char *)&linktype[cpri_num], 2);
@@ -338,13 +322,16 @@ int cpri_creatsk(const int type, const int cpri_num)
  * 		失败：不会返回，会一直发送UDP进行请求，直到有应答或程序关闭；
  * 		成功：0
  */
-int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cpri_addr, const int cpri_num)
+int cpritobbu_req(BBU_HEAD *cpri_ans, const int cpri_num)
 {
 	char *device = eth_name[cpri_num], ip[20], buf[16];
 	int ret = -1, len = 0, iOp = 1, sk = -1;
 	ssize_t ssize = -1;
 	struct ifreq ifreq;
+	struct sockaddr_in cpri_addr;
+	RRU_HEAD cpri_que;
 
+	memset(&cpri_addr, 0, sizeof(struct sockaddr_in));
 	//将ifreq结构体清零，并将想要设置ip地址的网口名称赋值给ifreq结构体
 	memset(&ifreq, 0, sizeof(struct ifreq));
 	strcpy(ifreq.ifr_name, device);
@@ -354,12 +341,16 @@ int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cp
 #ifdef PPC
 	vss_read(cpri_num/4, cpri_num%4, 0, buf);
 #endif
-	cpri_que->rru_id = buf[2];
-	cpri_que->bbu_num = buf[1];
+	cpri_que.rru_id = buf[2];
+	cpri_que.bbu_num = buf[1];
 
+	//指定socket套接字所采用的协议簇是IPv4
+	cpri_addr.sin_family = AF_INET;
+	//指定服务器端口号为33333
+	cpri_addr.sin_port = htons(33333);
 	//设置socket要通信的ip地址是255.255.255.255,
 	//创建使用UDP协议的套接字，这样就表明采用UDP协议并全网广播数据
-	(cpri_addr->sin_addr).s_addr = inet_addr("255.255.255.255");
+	(cpri_addr.sin_addr).s_addr = inet_addr("255.255.255.255");
 	sk = cpri_creatsk(SOCK_DGRAM, cpri_num);
 
 	do
@@ -372,7 +363,7 @@ int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cp
 			sleep(3);
 			continue;
 		}
-		memcpy(cpri_que->rru_mac, ifreq.ifr_hwaddr.sa_data, 6);
+		memcpy(cpri_que.rru_mac, ifreq.ifr_hwaddr.sa_data, 6);
 
 		//设置刚才创建的套接字采用广播方式通信
 		ret = setsockopt(sk, SOL_SOCKET, SO_BROADCAST, &iOp, sizeof(int));
@@ -384,7 +375,7 @@ int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cp
 		}
 		
 		//发送RRU的广播请求信息
-		ssize = sendto(sk, cpri_que, sizeof(RRU_HEAD), 0, (struct sockaddr*)cpri_addr, sizeof(struct sockaddr));
+		ssize = sendto(sk, &cpri_que, sizeof(RRU_HEAD), 0, (struct sockaddr*)&cpri_addr, sizeof(struct sockaddr));
 		if(ssize < 0)
 		{
 			perror(device);
@@ -398,12 +389,12 @@ int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cp
 		{
 			continue;
 		}
-		ssize = recvfrom(sk, cpri_ans, sizeof(BBU_HEAD), 0, (struct sockaddr*)cpri_addr, &len);
+		ssize = recvfrom(sk, cpri_ans, sizeof(BBU_HEAD), 0, (struct sockaddr*)&cpri_addr, &len);
 		if(ssize > 0)
 		{
 			//收到应答后，比较rru的id是否相同。如果不同则说明不是想要收到的应答，然后重新开始请求。
 			printf("cpri%d rru_id: 0x%x\n", cpri_num+1, cpri_ans->rru_id);
-			if(cpri_que->rru_id != cpri_ans->rru_id)
+			if(cpri_que.rru_id != cpri_ans->rru_id)
 			{
 				printf("cpri%d rru_id error\n", cpri_num+1);
 				sleep(3);
@@ -469,14 +460,20 @@ int cpritobbu_req(RRU_HEAD *cpri_que, BBU_HEAD *cpri_ans, struct sockaddr_in *cp
  * 		失败：不会返回，会一直发送TCP连接请求，直到成功或程序关闭；
  * 		成功：TCP连接成功的sk套接字。
  */
-int cpri_tcpcon(const BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr, const int cpri_num)
+int cpri_tcpcon(const BBU_HEAD cpri_ans, const int cpri_num)
 {
 	char bbu_ip[20];
 	int sk = -1, ret = -1;
+	struct sockaddr_in cpri_addr;
 
+	memset(&cpri_addr, 0, sizeof(struct sockaddr_in));
+	//指定socket套接字所采用的协议簇是IPv4
+	cpri_addr.sin_family = AF_INET;
+	//指定服务器端口号为33333
+	cpri_addr.sin_port = htons(30000);
 	//将BBU端口的ip地址作为服务器的ip地址来进行设置
 	sprintf(bbu_ip, "%d.%d.%d.%d", cpri_ans.bbu_ip[0], cpri_ans.bbu_ip[1], cpri_ans.bbu_ip[2], cpri_ans.bbu_ip[3]);
-	(cpri_addr->sin_addr).s_addr = inet_addr(bbu_ip);
+	(cpri_addr.sin_addr).s_addr = inet_addr(bbu_ip);
 
 	//创建使用TCP协议的套接字sk
 	sk = cpri_creatsk(SOCK_STREAM, cpri_num);
@@ -484,7 +481,7 @@ int cpri_tcpcon(const BBU_HEAD cpri_ans, struct sockaddr_in *cpri_addr, const in
 	do
 	{
 		//连接TCP服务器，如果连接失败，则等待3s后，再次请求连接，直到成功
-		ret = connect(sk, (struct sockaddr*)cpri_addr, sizeof(struct sockaddr));
+		ret = connect(sk, (struct sockaddr*)&cpri_addr, sizeof(struct sockaddr));
 		if(ret < 0)
 		{
 			perror(eth_name[cpri_num]);
