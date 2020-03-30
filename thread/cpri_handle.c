@@ -188,6 +188,59 @@ int cpri_comch_cfg(int sk, char *msg, const int cpri_num)
 	}
 }
 
+/*
+ * 函数名：int down_file(char local_file[26], char server_file[220], const int cpri_num)
+ * 功能描述：文件下载函数，调用后将下载文件并返回下载结果。
+ * input：
+ * 		1、local_file，本地文件的下载路径；
+ * 		2、server_file，服务器文件的下载路径；
+ *		3、cpri_num，cpri的接口号。
+ * output：
+ *		ret：返回文件下载的结果。
+ */
+int down_file(char local_file[26], char server_file[220], const int cpri_num)
+{
+	int ret = -1, fd = -1;
+	unsigned int len = 0;
+
+	ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, local_file, server_file, cpri_num);
+
+	if(ret == 0)
+	{
+		ret = 0;		//文件下载成功
+		fd = open(local_file, O_RDONLY);
+		if(fd < 0)
+		{
+			perror("版本更新失败");
+			ret = 1;
+		}else
+		{
+			len = lseek(fd, 0, SEEK_END);
+			if(len < 0)
+			{
+				close(fd);
+				perror("版本更新失败");
+				ret = 4;
+			}else if(len != softchk[cpri_num].file_length && len != firmchk[cpri_num].file_length)
+			{
+				close(fd);
+				printf("文件长度不一致\n");
+				ret = 3;
+			}else
+				close(fd);
+		}
+	}
+	else if(ret == -5)
+		ret = 1;		//文件不存在
+	else if(ret == -8)
+		ret = 2;		//文件下载超时
+	else if(ret == -9)
+		ret = 3;		//文件过大
+	else
+		ret = 4;		//其它原因
+
+	return ret;
+}
 
 /*
  * 函数名：void cpri_comch_init(int sk, char *msg, MSG_HEAD *msg_head, BBU_HEAD cpri_ans)
@@ -205,36 +258,30 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 	char send_msg[512], server_file[220], local_file[26];
 	int ret = 0, rec_num = 0, soft_fd = -1, firm_fd = -1;
 	unsigned int len;
-	fd_set rdfds;
-	struct timeval tv;
 	MSG_HEAD msg_head;
 
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
+	memset(send_msg, 0, sizeof(char)*512);
 	memset(server_file, 0, sizeof(char)*220);
 	memset(local_file, 0, sizeof(char)*16);
+	
 	//cpri发送通信链路建立的消息集合请求
 	cpri_comch_req(sk, cpri_ans, cpri_num);
 
 	while(1)
 	{
-		FD_ZERO(&rdfds);		//这个必须写到这里，重复调用select需要重新设置检测
-		FD_SET(sk, &rdfds);		//的文件描述符的集合
 		//接收BBU返回的通道建立配置信息，等待10s，若没有接收到则超时
-		tv.tv_sec = 10;
-		tv.tv_usec = 0;
-		ret = select(sk + 1, &rdfds, NULL, NULL, &tv);
+		ret = rec_timeout(sk, 10);
 		if(ret < 0)
-			perror(eth_name[cpri_num]);
-		else if(ret == 0)
 		{
-			//当select返回0时，说明等待超时，此时就重新发送通道建立请求
+			//当rec_timeout返回-2时，说明等待超时，此时就重新发送通道建立请求
 			printf("cpri%d chlink time out!\n", cpri_num+1);
 			rec_num = 0;
 			memset(msg, 0, sizeof(char) * 512);
 			cpri_comch_req(sk, cpri_ans, cpri_num);
 			continue;
  		}else
-			rec_num += recv(sk, msg + rec_num, 512, 0);		//等到应答后，进行接收数据。数据有可能不是1包发完，所以需要进行+=，累积之前接收的数据
+			rec_num += recv(sk, msg + rec_num, 512 - rec_num, 0);		//等到应答后，进行接收数据。数据有可能不是1包发完，所以需要进行+=，累积之前接收的数据
 
 		//当接收的数据总大小和返回的消息头中指明数据的大小相等之后，说明数据接收完毕
 		if(rec_num >= ((MSG_HEAD *)msg)->msg_size && ((MSG_HEAD *)msg)->msg_size != 0)
@@ -252,43 +299,11 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 					{
 						while(1)
 						{
+							verupdata[cpri_num].soft_type = softchk[cpri_num].soft_type;
 							sprintf(server_file, "%s/%s", softchk[cpri_num].file_path, softchk[cpri_num].file_name);
 							sprintf(local_file, "./software/%s", softchk[cpri_num].file_name);
-							ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, local_file, server_file, cpri_num);
-							verupdata[cpri_num].soft_type = softchk[cpri_num].soft_type;
-							if(ret == 0)
-							{
-								verupdata[cpri_num].res = 0;		//文件下载成功
-								soft_fd = open(local_file, O_RDONLY);
-								if(soft_fd < 0)
-								{
-									perror("软件版本更新失败");
-									verupdata[cpri_num].res = 1;
-								}else
-								{
-									len = lseek(soft_fd, 0, SEEK_END);
-									if(len < 0)
-									{
-										close(soft_fd);
-										perror("软件版本更新失败");
-										verupdata[cpri_num].res = 4;
-									}else if(len != softchk[cpri_num].file_length)
-									{
-										close(soft_fd);
-										printf("软件文件长度不一致\n");
-										verupdata[cpri_num].res = 3;
-									}else
-										close(soft_fd);
-								}
-							}
-							else if(ret == -5)
-								verupdata[cpri_num].res = 1;		//文件不存在
-							else if(ret == -8)
-								verupdata[cpri_num].res = 2;		//文件下载超时
-							else if(ret == -9)
-								verupdata[cpri_num].res = 3;		//文件过大
-							else
-								verupdata[cpri_num].res = 4;		//其它原因
+							//下载文件，并得出下载结果
+							verupdata[cpri_num].res = down_file(local_file, server_file, cpri_num);
 
 							msg_head.msg_id = CPRI_VERUP_IND;
 							msg_head.msg_size = MSG_HEADSIZE + verupdata[cpri_num].ie_size;
@@ -311,49 +326,18 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 					{
 						while(1)
 						{
+							verupdata[cpri_num].soft_type = firmchk[cpri_num].soft_type;
 							sprintf(server_file, "%s/%s", firmchk[cpri_num].file_path, firmchk[cpri_num].file_name);
 							sprintf(local_file, "./firmware/%s", firmchk[cpri_num].file_name);
-							ret = ftp_down(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, local_file, server_file, cpri_num);
-							verupdata[cpri_num].soft_type = firmchk[cpri_num].soft_type;
-							if(ret == 0)
-							{
-								verupdata[cpri_num].res = 0;		//文件下载成功
-								firm_fd = open(local_file, O_RDONLY);
-								if(firm_fd < 0)
-								{
-									perror("固件版本更新失败");
-									verupdata[cpri_num].res = 1;
-								}else
-								{
-									len = lseek(firm_fd, 0, SEEK_END);
-									if(len < 0)
-									{
-										close(firm_fd);
-										perror("固件版本更新失败");
-										verupdata[cpri_num].res = 4;
-									}else if(len != firmchk[cpri_num].file_length)
-									{
-										close(firm_fd);
-										printf("固件文件长度不一致\n");
-										verupdata[cpri_num].res = 3;
-									}else
-										close(firm_fd);
-								}
-							}
-							else if(ret == -5)
-								verupdata[cpri_num].res = 1;		//文件不存在
-							else if(ret == -8)
-								verupdata[cpri_num].res = 2;		//文件下载超时
-							else if(ret == -9)
-								verupdata[cpri_num].res = 3;		//文件过大
-							else
-								verupdata[cpri_num].res = 4;		//其它原因
+							//下载文件，并得出下载结果
+							verupdata[cpri_num].res = down_file(local_file, server_file, cpri_num);
 
 							msg_head.msg_id = CPRI_VERUP_IND;
 							msg_head.msg_size = MSG_HEADSIZE + verupdata[cpri_num].ie_size;
 							memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 							memcpy(send_msg + MSG_HEADSIZE, (char *)(&verupdata[cpri_num]), sizeof(CL_VERUPDATA));
 							send(sk, send_msg, msg_head.msg_size, 0);
+							
 							if(verupdata[cpri_num].res == 0)
 								break;
 							else
@@ -364,7 +348,7 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 						memcpy(rrusoftinfo[cpri_num].firm_ver, firmchk[cpri_num].file_ver, sizeof(firmchk[cpri_num].file_ver));
 						cpri_write_info((char *)&rrusoftinfo[cpri_num], 6);
 						firminfo_write(0, firmchk[cpri_num].file_name, firmchk[cpri_num].file_ver);
-						
+						//将下载下来的固件，写入到fpga中
 						char *data;
 						data = malloc(firmchk[cpri_num].file_length);
 						firm_fd = open(local_file, O_RDONLY);
@@ -377,7 +361,7 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 						close(firm_fd);
 					}
 
-					if(softchk[cpri_num].res != 0 || firmchk[cpri_num].res != 0)
+					if(softchk[cpri_num].res != 0 || firmchk[cpri_num].res != 0)	//如果软件或固件已经下载，则需要重启应用
 					{
 #ifdef PPC
 						eblc_write(0, 0, 0);	//复位FPGA

@@ -5,6 +5,7 @@
 
 int cpri_comch_req(int sk, const BBU_HEAD cpri_ans, const int cpri_num);
 int cpri_comch_cfg(int sk, char *msg, const int cpri_num);
+int down_file(char local_file[26], char server_file[220], const int cpri_num);
 void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_num);
 int cpri_verdown_que(int sk, char *msg, const int cpri_num);
 int cpri_veract_ind(int sk, char *msg, const int cpri_num);
