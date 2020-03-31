@@ -1,7 +1,6 @@
 #ifndef USR_H
 #define USR_H
 
-
 #define RET_ERR (-1)
 #define RET_OK 0
 
@@ -21,14 +20,18 @@ int device_write(int fpga, int dev, int offset, int val);
 			0x05: ad
 			0x06: da_pll7044
 			0x07: da
-			0x08:射频1-只写fpda0
-			0x09:射频2-只写fpda0
-			0x0a:射频3-只写
-			0x0b:射频4-只写
-			0x0c:射频5-只写
-			0x0d:射频6-只写
-			0x0e:射频7-只写
-			0x0f:射频8-只写
+			0x08: 射频1-只写-fpga0
+			0x09: 射频2-只写-fpga0
+			0x0a: 射频3-只写-fpga0
+			0x0b: 射频4-只写-fpga0
+			0x0c: 射频5-只写-fpga0
+			0x0d: 射频6-只写-fpga0
+			0x0e: 射频7-只写-fpga0
+			0x0f: 射频8-只写-fpga0
+			0x10: 发送射频1-只写-fpga0
+			0x11: 发送射频1-只写-fpga0
+			0x12: 发送射频1-只写-fpga0
+			0x13: 发送射频1-只写-fpga0
 		offset: 寄存器偏移值
 		val: 	寄存器值
 返    回:   RET_OK/RET_ERR
@@ -91,13 +94,16 @@ int da_recall_mode_set(int fpga, int channel, int mode)
 			0x01: fpga1
 		channel:
 			0x00: da_ch0 da通道0
-			0x01: da_ch0 da通道0
+			0x01: da_ch1 da通道1
+		int child: 
+			0x00: 子信道0
+			0x01: 子信道1
 		mode:
 			0x00: 正常模式[数据源BBU]
 			0x01: 模拟数据模式[测试数据]
 返    回:   RET_OK/RET_ERR
 ******************************************************************************/
-int da_recall_mode_set(int fpga, int channel, int mode);
+int da_recall_mode_set(int fpga, int channel, int child, int mode);
 
 /******************************************************************************
 int da_recall_enable(int fpga, int channel, int enable);
@@ -108,7 +114,7 @@ int da_recall_enable(int fpga, int channel, int enable);
 			0x01: fpga1
 		channel:
 			0x00: da_ch0 da通道0
-			0x02: da_ch0 da通道0
+			0x01: da_ch1 da通道1
 		child:
 			0x00: da_child_ch0 da子信道0
 			0x01: da_child_ch1 da子信道1
@@ -223,7 +229,7 @@ int da_get_da_gain(int fpga, int channel, int child, double* db);
 
 /******************************************************************************
 int cpri_status_read(int fpga, int cpri)
-函数说明:	设置da回放增益
+函数说明:	获取cpri状态
 参    数:  
 		fpga:
 			0x00: fpga0
@@ -272,7 +278,7 @@ int fpga_clk_ref_set(int fpga, int rw, int ref);
 		ref:
 			0x0:内参考
 			0x1:外SMA参考
-			0x2:外光纤参考
+			e/x2:外光纤参考
 返    回:   RET_OK/RET_ERR
 ******************************************************************************/
 int fpga_clk_ref_ctrl(int fpga, int rw, int *ref);
@@ -314,11 +320,11 @@ int upstream_delay_ctrl(int fpga, int rw, unsigned int* us);
 		rw:
 			0: 读
 			1: 写
-		us:
-			延时时间设置单位u秒.最大值33000ns
+		ns:
+			延时时间设置单位ns秒.最大值33000ns
 返    回:   RET_OK/RET_ERR
 ******************************************************************************/
-int upstream_delay_ctrl(int fpga, int rw, unsigned int* ns); //修改成ns为单位
+int upstream_delay_ctrl(int fpga, int rw, unsigned int* ns);
 
 /******************************************************************************
 int downstream_delay_ctrl(int fpga, int rw, unsigned int* us);
@@ -330,8 +336,8 @@ int downstream_delay_ctrl(int fpga, int rw, unsigned int* us);
 		rw:
 			0: 读
 			1: 写
-		us:
-			延时时间设置单位u秒.最大值33000ns
+		ns:
+			延时时间设置单位n秒.最大值33000ns
 返    回:   RET_OK/RET_ERR
 ******************************************************************************/
 int downstream_delay_ctrl(int fpga, int rw, unsigned int* ns);
@@ -359,11 +365,10 @@ int vss_write(int fpga, int cpri, int child, char buf[16]);
 			0x01: fpga1
 		cpri:
 			[0, 3]
-		chile:
+		child:
 			子信道[0,3]
 		buf:
 			128bit
-			
 返    回:   RET_OK/RET_ERR
 ******************************************************************************/
 int vss_write(int fpga, int cpri, int child, char buf[16]);
@@ -377,7 +382,7 @@ int vss_read(int fpga, int cpri, int child, char buf[16]);
 			0x01: fpga1
 		cpri:
 			[0, 3]
-		chile:
+		child:
 			子信道[0,3]
 		buf:
 			128bit
