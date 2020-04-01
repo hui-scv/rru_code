@@ -136,7 +136,7 @@ int cpri_comch_cfg(int sk, char *msg, const int cpri_num)
 				{
 					runans[cpri_num].sta = 1;
 #ifdef PPC
-					ret = da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 1);
+					ret = da_recall_mode_set(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 1);
 #endif
 				}
 				break;
@@ -363,11 +363,6 @@ void cpri_comch_init(int sk, char *msg, const BBU_HEAD cpri_ans, const int cpri_
 
 					if(softchk[cpri_num].res != 0 || firmchk[cpri_num].res != 0)	//如果软件或固件已经下载，则需要重启应用
 					{
-#ifdef PPC
-						eblc_write(0, 0, 0);	//复位FPGA
-						eblc_write(1, 0, 0);
-#endif
-						sync();
 						exit(-1);		//退出主程序，返回父进程，然后父进程再执行当前的主程序路径的程序
 					}
 					else
@@ -609,11 +604,6 @@ int cpri_veract_ind(int sk, char *msg, const int cpri_num)
 
 		if(flag[0] == 1 || flag[1] == 1)
 		{
-#ifdef PPC
-			eblc_write(0, 0, 0);	//复位FPGA
-			eblc_write(1, 0, 0);
-#endif
-			sync();
 			exit(-1);		//退出主程序，返回父进程，然后父进程再执行当前的主程序路径的程序
 		}else
 			ret = -1;
@@ -1491,15 +1481,7 @@ int cpri_reset_ind(int sk, char *msg, const int cpri_num)
 
 	if(ie_id == 1301 && count == size)
 	{
-		/*******************************
-		进行RRU的软件复位操作
-		*******************************/
 		free(msg);
-#ifdef PPC
-		eblc_write(0, 0, 0);	//复位FPGA
-		eblc_write(1, 0, 0);
-#endif
-		sync();
 		exit(-1);		//退出主程序，返回父进程，然后父进程再执行当前的主程序路径的程序
 	}else
 		ret = -1;
@@ -1524,6 +1506,52 @@ int cpri_bbubeat_msg(int sk, char *msg, int *num, const int cpri_num)
 	*num = 0;
 	
 	return 0;
+}
+
+
+/*
+ * 函数名：void plot_conifg(int enable, int mode, const int cpri_num)
+ * 功能描述：RRU小区配置函数，设置其建立、重建和删除。
+ * input：
+ * 		1、enable：0，关闭ad/da通道；1，打开ad/da通道；
+ * 		2、mode，设置da回放的工作模式：0，正常模式；1，测试模式；
+ *		3、cpri_num，cpri的接口号。
+ * output：void
+ */
+int plot_conifg(int enable, int mode, unsigned short power, const int cpri_num)
+{
+	float dbm;
+	int val = 0, ret = 0;
+
+	if((short)power < 0)
+		dbm = (int)(0xffff0000 | power);
+	else
+		dbm = (int)power;
+	//根据小区功率来计算发射通道需要设置的衰减值
+	dbm = 0 - (dbm / 256 + 10);
+	val = (int)(dbm / 0.25);
+
+#ifdef PPC			//设置da模式，打开或关闭da/ad通道使能
+	da_recall_mode_set(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, mode);
+	if(da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, enable) == RET_OK)
+		ret = 0;
+	else
+	{
+		ret = 1;
+		goto end;
+	}
+	
+	if(ad_enable(cpri_num/4, cpri_num%4+1, enable) == RET_ERR)
+	{
+		ret = 1;
+		goto end;
+	}
+
+	device_write(0, (cpri_num/2)+0x10, 0, val);
+#endif
+
+end:
+	return ret;
 }
 
 
@@ -1562,56 +1590,28 @@ int cpri_lte_cfg(const int sk, char *msg, const int cpri_num)
 				msg_head.msg_id = CPRI_LTE_ANS;
 				msg_head.msg_size = MSG_HEADSIZE + pltcfgans[cpri_num].ie_size;
 				pltcfgans[cpri_num].plot_locflag = pltcfg[cpri_num].plot_locflag;
+				outpowerans[cpri_num].value = pltcfg[cpri_num].plot_power;			//根据小区配置来设置射频通道的输出功率
+				
 				if(pltcfg[cpri_num].plot_cfgflag == 0)		//建立
 				{
-#ifdef PPC			//设置da为正常模式，打开da/ad通道使能
-					da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 0);
-					if(da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 1) == RET_OK)
-						pltcfgans[cpri_num].res = 0;
-					else
-						pltcfgans[cpri_num].res = 1;
-					if(ad_enable(cpri_num/4, cpri_num%4+1, 1) == RET_ERR)
-						pltcfgans[cpri_num].res = 1;
-
-					device_write(0, cpri_num+8, 0, (pltcfg[cpri_num].plot_power-10)*2);
-					outpowerans[cpri_num].value = pltcfg[cpri_num].plot_power;
-#endif
+					pltcfgans[cpri_num].res = plot_conifg(1, 0, pltcfg[cpri_num].plot_power, cpri_num);
 					if(pltcfgans[cpri_num].res == 0)
 						runans[cpri_num].sta = 2;
 				}
 				else if(pltcfg[cpri_num].plot_cfgflag == 1)	//重配
 				{
-#ifdef PPC
-					da_recall_mode_set(cpri_num/4, (cpri_num - (cpri_num/4)*4)/2, 0);
-					if(da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 1) == RET_OK)
-						pltcfgans[cpri_num].res = 0;
-					else
-						pltcfgans[cpri_num].res = 1;
-					if(ad_enable(cpri_num/4, cpri_num%4+1, 1) == RET_ERR)
-						pltcfgans[cpri_num].res = 1;
-
-					device_write(0, cpri_num+8, 0, (pltcfg[cpri_num].plot_power-10)*2);
-					outpowerans[cpri_num].value = pltcfg[cpri_num].plot_power;
-#endif
+					plot_conifg(0, 0, pltcfg[cpri_num].plot_power, cpri_num);
+					pltcfgans[cpri_num].res = plot_conifg(1, 0, pltcfg[cpri_num].plot_power, cpri_num);
 					if(pltcfgans[cpri_num].res == 0)
 						runans[cpri_num].sta = 2;
 				}
 				else										//删除
 				{
-#ifdef PPC
-					if(da_recall_enable(cpri_num/4, (cpri_num-(cpri_num/4)*4)/2, cpri_num%2, 0) == RET_OK)
-						pltcfgans[cpri_num].res = 0;
-					else
-						pltcfgans[cpri_num].res = 1;
-					if(ad_enable(cpri_num/4, cpri_num%4+1, 0) == RET_ERR)
-						pltcfgans[cpri_num].res = 1;
-
-					device_write(0, cpri_num+8, 0, (pltcfg[cpri_num].plot_power-10)*2);
-					outpowerans[cpri_num].value = pltcfg[cpri_num].plot_power;
-#endif
+					pltcfgans[cpri_num].res = plot_conifg(0, 0, pltcfg[cpri_num].plot_power, cpri_num);
 					if(pltcfgans[cpri_num].res == 0)
 						runans[cpri_num].sta = 0;
 				}
+				
 				memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + MSG_HEADSIZE, (char *)(&pltcfgans[cpri_num]), sizeof(PLT_CFGANS));
 				send(sk, send_msg, msg_head.msg_size, 0);

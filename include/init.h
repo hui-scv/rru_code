@@ -14,6 +14,7 @@ int cprix_write_info(char *msg, int i, int cpri_num);
 int cpri_write_info(char *msg, int i);
 void softinfo_write(int type, char name[16], char verinfo[40]);
 void firminfo_write(int type, char name[16], char verinfo[40]);
+void exit_fun(void);
 void init(void);
 
 #endif

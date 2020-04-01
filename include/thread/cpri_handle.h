@@ -17,6 +17,7 @@ int cpri_ala_que(int sk, char *msg, const int cpri_num);
 int cpri_logup_que(int sk, char *msg, const int cpri_num);
 int cpri_reset_ind(int sk, char *msg, const int cpri_num);
 int cpri_bbubeat_msg(int sk, char *msg, int *num, const int cpri_num);
+int plot_conifg(int enable, int mode, unsigned short power, const int cpri_num);
 int cpri_lte_cfg(int sk, char *msg, const int cpri_num);
 int cpri_inftype_handle(char *msg, unsigned short ie_id, int acq);
 int cpri_statype_handle(char *msg, unsigned short ie_id, int acq);

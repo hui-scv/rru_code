@@ -558,6 +558,23 @@ void firminfo_write(int type, char name[16], char verinfo[40])
 	}
 }
 
+
+/*
+ * 函数名：void exit_fun(void)
+ * 功能描述：退出进程前，执行的功能函数，主要执行复位fpga功能。
+ * input：void
+ * output：void
+ */
+void exit_fun(void)
+{
+#ifdef PPC
+	eblc_write(0, 0, 0);	//复位FPGA
+	eblc_write(1, 0, 0);
+#endif
+	sync();
+}
+
+
 /*
  * 函数名：void init(void)
  * 功能描述：获取RRU系统信息，将此信息写入到每个cpri接口，初始化驱动，以及配置各个模块。
@@ -570,6 +587,8 @@ void init(void)
 	CL_LINKTYPE lt;
 	char msg[512];
 	int i, j, ret;
+
+	atexit(exit_fun);
 
 	//读取记录的cpri相关信息，包括通道建立请求的所有IE消息体，以及cpu占用率的统计周期
 	read_cpir();

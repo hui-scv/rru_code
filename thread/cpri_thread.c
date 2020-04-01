@@ -146,11 +146,7 @@ void *cpri_thread(void *cpri_n)
 			linktype[cpri_num].link_type = 1;
 			linktype[cpri_num].reboot_code = 1;
 			cpri_write_info((char *)&linktype[cpri_num], 2);
-#ifdef PPC
-			eblc_write(0, 0, 0);	//复位FPGA
-			eblc_write(1, 0, 0);
-#endif
-			sync();
+
 			exit(-1);		//退出主程序，返回父进程，然后父进程再执行当前的主程序路径的程序
 		}
 	}
