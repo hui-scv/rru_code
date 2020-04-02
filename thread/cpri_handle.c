@@ -914,7 +914,7 @@ int cpri_para_que(int sk, char *msg, const cpri_num)
 			case 409:		//状态机查询
 #ifdef PPC
 				//状态机查询应该就是读取cpri状态
-				cpri_status_read(0, 0, &cpri_status);
+				cpri_status_read(cpri_num/4, cpri_num%4, &cpri_status);
 #endif
 				stamachans[cpri_num].state = cpri_status.state;
 				//memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
@@ -1398,17 +1398,19 @@ int cpri_logup_que(int sk, char *msg, const int cpri_num)
 		msg_head.msg_id = CPRI_LOGUP_ANS;
 		msg_head.msg_size = MSG_HEADSIZE + upans[cpri_num].ie_size;
 		upans[cpri_num].log_type = upque[cpri_num].log_type;
+		
 		//日志上传请求，这里判断日志是否存在
 		sprintf(err_file, "./log/cpri%d_error_log", cpri_num);
 		if(upans[cpri_num].log_type == 0)
 			upans[cpri_num].res = access(err_file, F_OK);
 		else if(upque[cpri_num].log_type == 1)
-			upans[cpri_num].res = access("./log/usr.txt", F_OK);
+			upans[cpri_num].res = access(USR_LOG, F_OK);
 		else
-			upans[cpri_num].res = access("./log/sys.txt", F_OK);
+			upans[cpri_num].res = access(SYS_LOG, F_OK);
 		
 		if(upans[cpri_num].res == -1)
 			upans[cpri_num].res = 1;
+		
 		memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 		memcpy(send_msg + MSG_HEADSIZE, (char *)(&upans[cpri_num]), sizeof(LOG_UPANS));
 		send(sk, send_msg, msg_head.msg_size, 0);
@@ -1423,9 +1425,9 @@ int cpri_logup_que(int sk, char *msg, const int cpri_num)
 			if(upres[cpri_num].log_type == 0)
 				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, err_file, server_file, cpri_num);
 			else if(upque[cpri_num].log_type == 1)
-				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "./log/usr.txt", server_file, cpri_num);
+				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, USR_LOG, server_file, cpri_num);
 			else
-				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, "./log/sys.txt", server_file, cpri_num);
+				ret = ftp_up(eth_name[cpri_num], linkaddr[cpri_num].bbu_ip, SYS_LOG, server_file, cpri_num);
 
 			if(ret == 0)
 				upres[cpri_num].res = 0;		//文件下载成功

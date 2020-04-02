@@ -623,3 +623,4 @@ void init(void)
 	if(ret == -1)
 		perror("read cpu rate");
 }
+

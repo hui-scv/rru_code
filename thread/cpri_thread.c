@@ -75,7 +75,7 @@ void *cpri_thread(void *cpri_n)
 	*****************/
 	cpri_status.state = 0xF;
 	do{
-		cpri_status_read(0, 0, &cpri_status);
+		cpri_status_read(cpri_num/4, cpri_num%4, &cpri_status);
 		sleep(3);
 	}while((((short)cpri_status.warning_report >> 0x01)&0xF) != 0xF);
 #endif
@@ -252,7 +252,7 @@ int cpri_creatsk(const int type, const int cpri_num)
 			sleep(3);
 			continue;
 		}
-		printf("cpri%d socket success!\n", cpri_num+1);
+		//printf("cpri%d socket success!\n", cpri_num+1);
 
 		//然后获得对应网口的ip地址，并设置到套接字地址信息设置的相关结构体中
 		strcpy(ifreq.ifr_name, device);

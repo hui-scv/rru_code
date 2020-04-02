@@ -31,6 +31,10 @@
 #define ETH6 "eth6"
 #define ETH7 "eth7"
 
+//日志路径
+#define SYS_LOG "/var/log/messages"
+#define USR_LOG "/var/log/wtmp"
+
 
 extern pthread_rwlock_t chlinkque_rwlock;
 
