@@ -121,7 +121,7 @@ typedef struct sq_rayans		//光口信息查询响应IE
 	unsigned char is_flag;		//在位信息
 	unsigned char ray_manu[16];	//光模块厂商
 	unsigned short ray_speed;	//光模块传输bit速率
-	unsigned char tem;		//温度
+	char tem;		//温度
 	unsigned short volt;		//电压
 	unsigned short curr;		//电流
 	unsigned char _9_max_long;	//9um单模光纤支持的最大长度

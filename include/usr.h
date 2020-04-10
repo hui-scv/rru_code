@@ -1,8 +1,10 @@
 #ifndef USR_H
 #define USR_H
 
+
 #define RET_ERR (-1)
 #define RET_OK 0
+
 
 /******************************************************************************
 int device_write(int fpga, int dev, int offset, int val);
@@ -390,6 +392,30 @@ int vss_read(int fpga, int cpri, int child, char buf[16]);
 ******************************************************************************/
 int vss_read(int fpga, int cpri, int child, char buf[16]);
 
+
+/******************************************************************************
+int read_sfp_power(int sfp_number, double* tx_power, double* rx_power);
+函数说明:   读取光模块输入、输出功率
+参    数:  
+        sfp_number:[0, 8]
+		tx_power: 输出光功率mW
+		rx_power:  输入光功率mW
+返    回:   RET_OK/RET_ERR
+******************************************************************************/
+int read_sfp_power(int sfp_number, double* tx_power, double* rx_power);
+
+
+
+/******************************************************************************
+int read_sfp_reg_char(int sfp_number, unsigned char dev_addr, unsigned char offset);
+函数说明: 读取光模块寄存器
+参    数:  
+        sfp_number:[0, 8]
+		dev_addr: 0xa0 / 0xa2
+		offset:   寄存器地址
+返    回:   寄存器值
+******************************************************************************/
+int read_sfp_reg_char(int sfp_number, unsigned char dev_addr, unsigned char offset);
 
 
 /*全局复位，调用这个函数写*/

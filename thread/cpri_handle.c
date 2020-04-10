@@ -615,6 +615,56 @@ int cpri_veract_ind(int sk, char *msg, const int cpri_num)
 
 
 /*
+ * 函数名：unsigned short cpri_get_fibre_speed(int speed)
+ * 功能描述：将读出的速度类型转化为实际速度。
+ * input：
+ * 		1、speed，光纤的速度类型；
+ * output：
+ * 		unsigned short类型的数据，实际光纤通道的速度。
+ */
+unsigned short cpri_get_fibre_speed(int speed)
+{
+	int i = 0;
+	unsigned short ret = -1;
+
+	for(i = 0; i < 8; i++)
+	{
+		if(speed | (0x01 << i))
+		{
+			switch (i)
+			{
+				case 0:
+					ret = 100 * 8;
+					break;
+				case 1:
+					break;
+				case 2:
+					ret = 200 * 8;
+					break;
+				case 3:
+					ret = 3200 * 8;
+					break;
+				case 4:
+					ret = 400 * 8;
+					break;
+				case 5:
+					ret = 1600 * 8;
+					break;
+				case 6:
+					ret = 800 * 8;
+					break;
+				case 7:
+					ret = 1200 * 8;
+					break;
+			}
+		}
+	}
+	
+	return ret;
+}
+
+
+/*
  * 函数名：int cpri_state_que(int sk, char *msg)
  * 功能描述：RRU状态查询处理函数。
  * input：
@@ -635,6 +685,10 @@ int cpri_state_que(int sk, char *msg, const int cpri_num)
 	AD_ENABLE_S ad_en_sta;
 	DA_ENABLE_S da_en_sta;
 
+	double tx_pw = 0, rx_pw = 0;
+	int j = 0;
+	unsigned short speed_val = 0, voltage_val = 0, current_val = 0;
+	
 	memset(&msg_head, 0, sizeof(MSG_HEAD));
 	count = *(unsigned int *)(msg + 4) - MSG_HEADSIZE;	//得到所有ie消息体的总大小
 	memcpy(&msg_head, (MSG_HEAD *)msg, MSG_HEADSIZE);
@@ -761,7 +815,47 @@ int cpri_state_que(int sk, char *msg, const int cpri_num)
 				//send(sk, send_msg, msg_head.msg_size, 0);	//初始化校准结果查询响应消息体
 				break;
 			case 309:		//光口信息查询
-							//没有找到哪里有对光口信息的设置，可能是默认初始化的，待确定
+				memcpy((char *)(&raysta[cpri_num]) + 4, (char *)src_addr, sizeof(SQ_RAYSTA) - 4);	//取得查询请求的消息体内容
+				rayans[cpri_num].ray_num = raysta[cpri_num].ray_num;
+#ifdef PPC
+				ret = read_sfp_power(rayans[cpri_num].ray_num, &tx_pw, &rx_pw);
+				if(ret == 0)
+				{
+					rayans[cpri_num].is_flag = 1;
+					
+					rayans[cpri_num].rec_power = (unsigned short)(rx_pw * 10000);
+					rayans[cpri_num].tr_power = (unsigned short)(tx_pw * 10000);
+
+					for(j = 0; j < 16; j++)		//读光模块厂商名称
+						rayans[cpri_num].ray_manu[j] = read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA0, 20+j);
+
+					//读取光模块速率
+					speed_val = cpri_get_fibre_speed(read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA0, 10));
+					rayans[cpri_num].ray_speed = speed_val;
+					
+					rayans[cpri_num].tem = read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA2, 96);	//读取光模块温度
+
+					//读取光模块电压值
+					voltage_val = read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA2, 98);
+					voltage_val = (voltage_val << 8);
+					voltage_val |= (unsigned char)read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA2, 99);
+					voltage_val /= 10;
+					rayans[cpri_num].volt = voltage_val;
+					
+					//读取光模块电流值
+					current_val = read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA2, 108);
+					current_val = (current_val << 8);
+					current_val |= (unsigned char)read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA2, 109);
+					current_val = ((short)current_val / 10);
+					rayans[cpri_num].curr = current_val;
+					
+					rayans[cpri_num]._9_max_long = read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA0, 14);
+					rayans[cpri_num]._9o_max_long = read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA0, 15);
+					rayans[cpri_num]._50_max_long = read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA0, 16);
+					rayans[cpri_num]._62o5_max_long = read_sfp_reg_char(rayans[cpri_num].ray_num, 0xA0, 17);
+				}else
+					rayans[cpri_num].is_flag = 0;
+#endif
 				//memcpy(send_msg, (char *)&msg_head, MSG_HEADSIZE);
 				memcpy(send_msg + msg_head.msg_size, (char *)(&rayans[cpri_num]), sizeof(SQ_RAYANS));
 				msg_head.msg_size += rayans[cpri_num].ie_size;
