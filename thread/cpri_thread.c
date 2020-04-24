@@ -31,7 +31,7 @@ unsigned int cpri_ala_flag[8] = {0};
 //定义8个网口的设备名
 char *eth_name[8] = {"eth0", "eth1", "eth2", "eth3", "eth4", "eth5", "eth6", "eth7"};
 //定义8个网口的套接字
-int sock[8] = {-1};
+int sock[8] = {0};
 BBU_HEAD cprians[8];
 
 int cpri_creatsk(const int type, const int cpri_num);
@@ -52,8 +52,8 @@ int rec_timeout(int sk, const int sec);
  */
 void *cpri_thread(void *cpri_n)
 {
-	unsigned short head, ie_id, ie_size;
-	char *msg;
+	unsigned short head = 0, ie_id = 0, ie_size = 0;
+	char *msg = NULL;
 	int ret = 0, rec_num = 0, beat_num = 0, cpri_num = 0;
 	//定义消息头
 	BBU_HEAD cpri_ans;
@@ -71,13 +71,13 @@ void *cpri_thread(void *cpri_n)
 
 #ifdef PPC
 	/*****************
-	等待F态，这里是揣测的state为0xF时，F态就绪
+	等待F态，这里的state为0xF时，F态就绪
 	*****************/
 	cpri_status.state = 0xF;
 	do{
 		cpri_status_read(cpri_num/4, cpri_num%4, &cpri_status);
 		sleep(3);
-	}while((((short)cpri_status.warning_report >> 0x01)&0xF) != 0xF);
+	}while((((*(short *)&cpri_status) >> 0x01)&0xF) != 0xF);
 #endif
 
 	//RRU向BBU发送UDP广播，获取IP地址并设置
@@ -145,7 +145,7 @@ void *cpri_thread(void *cpri_n)
 			//BBU心跳死亡，跳转到重新初始化cpri
 			linktype[cpri_num].link_type = 1;
 			linktype[cpri_num].reboot_code = 1;
-			cpri_write_info((char *)&linktype[cpri_num], 2);
+			cpri_write_info((char *)&linktype[cpri_num], 2, linktype[cpri_num].ie_size);
 
 			exit(-1);		//退出主程序，返回父进程，然后父进程再执行当前的主程序路径的程序
 		}
@@ -234,7 +234,7 @@ int cpri_handle(char *msg, int sk, int *num, const int cpri_num)
  */
 int cpri_creatsk(const int type, const int cpri_num)
 {
-	char *device = eth_name[cpri_num], ip[20];
+	char *device = eth_name[cpri_num], ip[20] = {0};
 	int sk = 0;
 	struct sockaddr_in cpri_client_addr;
 	struct ifreq ifreq;
@@ -320,7 +320,7 @@ int cpri_creatsk(const int type, const int cpri_num)
  */
 int cpritobbu_req(BBU_HEAD *cpri_ans, const int cpri_num)
 {
-	char *device = eth_name[cpri_num], ip[20], buf[16];
+	char *device = eth_name[cpri_num], ip[20] = {0}, buf[16] = {0};
 	int ret = -1, len = 0, iOp = 1, sk = -1;
 	ssize_t ssize = -1;
 	struct ifreq ifreq;
@@ -458,14 +458,14 @@ int cpritobbu_req(BBU_HEAD *cpri_ans, const int cpri_num)
  */
 int cpri_tcpcon(const BBU_HEAD cpri_ans, const int cpri_num)
 {
-	char bbu_ip[20];
+	char bbu_ip[20] = {0};
 	int sk = -1, ret = -1;
 	struct sockaddr_in cpri_addr;
 
 	memset(&cpri_addr, 0, sizeof(struct sockaddr_in));
 	//指定socket套接字所采用的协议簇是IPv4
 	cpri_addr.sin_family = AF_INET;
-	//指定服务器端口号为33333
+	//指定服务器端口号为30000
 	cpri_addr.sin_port = htons(30000);
 	//将BBU端口的ip地址作为服务器的ip地址来进行设置
 	sprintf(bbu_ip, "%d.%d.%d.%d", cpri_ans.bbu_ip[0], cpri_ans.bbu_ip[1], cpri_ans.bbu_ip[2], cpri_ans.bbu_ip[3]);

@@ -26,11 +26,12 @@ CL_PROID porid[] =		//由PC端提供此信息
 	{
 	.ie_id = 1,
 	.ie_size = 100,
-	.rru_manu = {"TUOLAI"},
-	.rru_pub = {"TUOLAI"},
-	.pro_num = {"RRU-001-001"},
-	.birth_date = {"2020-03-20"},
-	.used_date = {"2020-03-20"},
+	.rru_manu = "TUOLAI",
+	.rru_pub = "TUOLAI",
+	.pro_num = "RRU-001-001",
+	.birth_date = "2020-03-20",
+	.used_date = "2020-03-20",
+	.addi_data = "NA",
 	}
 };
 
@@ -40,6 +41,7 @@ CL_LINKTYPE linktype[] =		//由RRU自己设置，并在通道建立之后，将�
 	.ie_id = 2,
 	.ie_size = 9,
 	.link_type = 2,
+	.reboot_code = 0xFFFFFFFF,
 	}
 };
 
@@ -58,10 +60,10 @@ CL_RRUCAPA rrucapa[] =			//由PC端提供此信息
 	.rru_ul_max = 33333,
 	.mode_sel = 4,
 	.ant_type = 0,
-	.mbbu_dl_sel = 0xff,
-	.sbbu_dl_sel = 0xff,
-	.mrru_ul_sel = 0xff,
-	.srru_ul_sel = 0xff,
+	.mbbu_dl_sel = 0xFF,
+	.sbbu_dl_sel = 0xFF,
+	.mrru_ul_sel = 0xFF,
+	.srru_ul_sel = 0xFF,
 	}
 };
 
@@ -79,8 +81,8 @@ CL_RRUINFO rruinfo[] =			//由PC端提供此信息
 	{
 	.ie_id = 5,
 	.ie_size = 52,
-	.type = {'T', 'U', 'O', 'L', 'A', 'I', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 0x01, 0x00, 0x01, 0x00, 0x00, 0xF6,},
-	.version = {"TLHWV1.0"},
+	.type = "TUOLAI          0101F6         ",
+	.version = "3FHWV1.0",
 	}
 };
 
@@ -89,8 +91,8 @@ CL_RRUSOFTINFO rrusoftinfo[] =	//一开始由PC端提供，后面进行版本下
 	{
 	.ie_id = 6,
 	.ie_size = 84,
-	.soft_ver = {"TLSWV1.0"},
-	.firm_ver = {"TLFWV1.0"},
+	.soft_ver = "3FSWV1.0",
+	.firm_ver = "3FFWV1.0",
 	}
 };
 
@@ -158,7 +160,7 @@ CL_RRUMODE rrumode[] =
 {[0 ... 7] = 
 	{
 	.ie_id = 13,
-	.ie_size = 6,
+	.ie_size = 8,
 	}
 };
 
@@ -218,6 +220,15 @@ CL_VERUPDATA verupdata[] =
 	.ie_size = 9,
 	}
 };
+
+CL_VERUPDATA firmverupdata[] =
+{[0 ... 7] = 
+	{
+	.ie_id = 31,
+	.ie_size = 9,
+	}
+};
+
 /*************************************************************************/
 
 VD_VERDOWNANS verdownans[] =

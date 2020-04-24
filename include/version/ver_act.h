@@ -3,6 +3,7 @@
 
 #include "../msg_head.h"
 
+#pragma pack(1)
 
 typedef struct va_rrusoftinfo		//RRU软件版本信息IE
 {
@@ -19,5 +20,7 @@ typedef struct va_rruveractans		//RRU版本激活响应IE
 	unsigned char soft_type;	//软件版本类型
 	unsigned int res;		//软件包激活返回结果
 } VA_RRUVERACTANS;
+
+#pragma pack()
 
 #endif

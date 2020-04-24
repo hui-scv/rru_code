@@ -3,6 +3,7 @@
 
 #include "../msg_head.h"
 
+#pragma pack(1)
 
 typedef struct vd_softchk		//软件版本核对结果IE
 {
@@ -32,5 +33,7 @@ typedef struct vd_verdownres		//版本下载传输完成指示IE
 	unsigned char soft_type;	//软件版本类型
 	unsigned int res;		//版本下载传输完成指示
 } VD_VERDOWNRES;
+
+#pragma pack()
 
 #endif

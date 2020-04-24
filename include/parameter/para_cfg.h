@@ -3,6 +3,7 @@
 
 #include "../msg_head.h"
 
+#pragma pack(1)
 
 typedef struct pc_systime		//系统时间IE
 {
@@ -138,5 +139,7 @@ typedef struct pc_antcfgans		//天线配置响应IE
 	unsigned char ant_num;		//天线组号
 	unsigned int res;		//返回结果
 } PC_ANTCFGANS;
+
+#pragma pack()
 
 #endif

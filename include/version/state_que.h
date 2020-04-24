@@ -3,6 +3,7 @@
 
 #include "../msg_head.h"
 
+#pragma pack(1)
 
 typedef struct sq_rfchsta		//射频通道状态IE
 {
@@ -129,5 +130,7 @@ typedef struct sq_rayans		//光口信息查询响应IE
 	unsigned char _50_max_long;	//50um单模光纤支持的最大长度
 	unsigned char _62o5_max_long;	//62.5um单模光纤支持的最大长度
 } SQ_RAYANS;
+
+#pragma pack()
 
 #endif

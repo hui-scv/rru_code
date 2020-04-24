@@ -9,10 +9,10 @@ void mk_dir(void);
 
 int main(void)
 {
-	int old_fd = -1, cur_fd = -1, new_fd = -1, status;
-	off_t len;
-	char path[30] = {'\0'}, file_name[16] = {'\0'};
-	pid_t pid_num;
+	int old_fd = -1, cur_fd = -1, new_fd = -1, status = -1;
+	off_t len = -1;
+	char path[30] = {0}, file_name[16] = {0};
+	pid_t pid_num = -1;
 	
 	mk_dir();
 	

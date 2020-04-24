@@ -46,7 +46,7 @@ void rf_init(void)
  */
 unsigned int get_val(char *s, int num)
 {
-	char *c, *b, number[11];
+	char *c, *b, number[11] = {0};
 	unsigned int i = 0, j = 0, k = 0, res = 0;
 
 	memset(number, 0, 11);
@@ -85,7 +85,7 @@ unsigned int get_val(char *s, int num)
 void signalHandler(int signo)
 {
 	FILE *fd;
-	char s[512];
+	char s[512] = {0};
 	static unsigned int new_total = 0, old_total = 0, new_idle = 0, old_idle = 0, flag = 0;
 	int i;
 	float p;
@@ -134,7 +134,7 @@ void signalHandler(int signo)
 
 
 /*
- * 函数名：int cprix_write_info(char *msg, int i, int cpri_num)
+ * 函数名：int cprix_write_info(char *msg, int i, int cpri_num, int size)
  * 功能描述：写入cpri口不同内容的信息。
  * input：
  * 		1、msg，指向一段内存的指针，用于传递写入的消息；
@@ -143,10 +143,10 @@ void signalHandler(int signo)
  * 		成功：ret，读出数据的size；
  * 		失败：-1
  */
-int cprix_write_info(char *msg, int i, int cpri_num)
+int cprix_write_info(char *msg, int i, int cpri_num, int size)
 {
 	int fd, ret;
-	char path[30];
+	char path[30] = {0};
 	
 	sprintf(path, "./cpriinfo/cpri%d_info", cpri_num);
 	fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
@@ -165,7 +165,7 @@ int cprix_write_info(char *msg, int i, int cpri_num)
 	}
 
 	//写入rru系统信息中的某一项信息，如果写入失败就关闭文件并返回-1
-	ret = write(fd, msg, 512);
+	ret = write(fd, msg, size);
 	if(ret < 0)
 	{
 		perror("write cprix_info");
@@ -183,19 +183,20 @@ fd_error:
 }
 
 /*
- * 函数名：int cpri_write_info(char *msg, int i)
+ * 函数名：int cpri_write_info(char *msg, int i, int size)
  * 功能描述：读取RRU系统信息的接口，将上一次配置的RRU信息读取出来并采用。
  * input：
  * 		1、msg，指向一段内存的指针，用于传递写入的消息；
  *		2、i， 用于指明是哪部份的系统信息。
+ *		3、size，要写入数据的总数
  * output：
  * 		成功：ret，读出数据的size；
  * 		失败：-1
  */
-int cpri_write_info(char *msg, int i)
+int cpri_write_info(char *msg, int i, int size)
 {
-	int fd, ret;
-	char path[30];
+	int fd = -1, ret = -1;
+	char path[30] = {0};
 	
 	sprintf(path, "./cpriinfo/cpri_info");
 	fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
@@ -214,7 +215,7 @@ int cpri_write_info(char *msg, int i)
 	}
 
 	//写入rru系统信息中的某一项信息，如果写入失败就关闭文件并返回-1
-	ret = write(fd, msg, 512);
+	ret = write(fd, msg, size);
 	if(ret < 0)
 	{
 		perror("write cpri_info");
@@ -243,8 +244,8 @@ fd_error:
  */
 int cprix_read_info(char *msg, int i, int cpri_num)
 {
-	int fd, ret;
-	char path[30];
+	int fd = -1, ret = -1;
+	char path[30] = {0};
 
 	sprintf(path, "./cpriinfo/cpri%d_info", cpri_num);
 	//打开存储rru系统信息的文件，如果打开失败则返回-1
@@ -293,8 +294,8 @@ fd_error:
  */
 int cpri_read_info(char *msg, int i)
 {
-	int fd, ret;
-	char path[30];
+	int fd = -1, ret = -1;
+	char path[30] = {0};
 
 	sprintf(path, "./cpriinfo/cpri_info");
 	//打开存储rru系统信息的文件，如果打开失败则返回-1
@@ -339,14 +340,14 @@ fd_error:
  */
 void read_cpirx(void)
 {
-	char msg[512];
-	int i, j, ret;
+	char msg[512] = {0};
+	int i = 1, j = 0, ret = -1;
 
 	for(j = 0; j < 8; j++)
 	{
 		for(i = 1; i < 3; i++)
 		{
-			memset(msg, 0, 512);
+			memset(msg, 0, sizeof(msg));
 			ret = cprix_read_info(msg, i, j);
 			
 			if(ret == -1)
@@ -375,12 +376,12 @@ void read_cpirx(void)
  */
 void read_cpir(void)
 {
-	char msg[512];
-	int i, j, ret;
+	char msg[512] = {0};
+	int i = 1, j = 0, ret = -1;
 
 	for(i = 1; i < 9; i++)
 	{
-		memset(msg, 0, 512);
+		memset(msg, 0, sizeof(msg));
 		ret = cpri_read_info(msg, i);
 
 		if(ret == -1)
@@ -438,7 +439,7 @@ void read_cpir(void)
 void softinfo_write(int type, char name[16], char verinfo[40])
 {
 	int cur_fd = -1, old_fd = -1, new_fd = -1;
-	char buf[60];
+	char buf[60] = {0};
 
 	memset(buf, 0, 60);
 	
@@ -504,7 +505,7 @@ void softinfo_write(int type, char name[16], char verinfo[40])
 void firminfo_write(int type, char name[16], char verinfo[40])
 {
 	int cur_fd = -1, old_fd = -1, new_fd = -1;
-	char buf[60];
+	char buf[60] = {0};
 
 	memset(buf, 0, 60);
 	
@@ -585,8 +586,7 @@ void init(void)
 {
 	struct itimerval new_value;
 	CL_LINKTYPE lt;
-	char msg[512];
-	int i, j, ret;
+	int ret = -1;
 
 	atexit(exit_fun);
 
@@ -598,8 +598,8 @@ void init(void)
 	lt.ie_id = 2;
 	lt.ie_size = 9;
 	lt.link_type = 2;
-	lt.reboot_code = 0;
-	cpri_write_info((char *)&lt, 2);
+	lt.reboot_code = 0xFFFFFFFF;
+	cpri_write_info((char *)&lt, 2, sizeof(CL_LINKTYPE));
 	
 	//外设驱动初始化
 	driver_init();

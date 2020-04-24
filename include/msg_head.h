@@ -8,8 +8,6 @@
 #ifndef __msg_head_
 #define __msg_head_
 
-#pragma pack(1)
-
 //消息头的大小
 #define MSG_HEADSIZE 15
 
@@ -104,6 +102,7 @@
 #define CPRI_LTE_CFG 193
 #define CPRI_LTE_ANS 194
 
+#pragma pack(1)
 
 typedef struct msg_head		//BBU和RRU进行正常通信时，使用的消息头
 {
@@ -132,5 +131,7 @@ typedef struct bbu_head		//BBU向RRU应答的UDP广播信息的格式
 	unsigned char bbu_ip[4];	//BBU的ip地址
 	unsigned char subnet_mask[4];	//子网掩码
 } BBU_HEAD;
+
+#pragma pack()
 
 #endif

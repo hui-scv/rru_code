@@ -3,6 +3,7 @@
 
 #include "../msg_head.h"
 
+#pragma pack(1)
 
 typedef struct log_upque		//日志上传请求IE
 {
@@ -28,5 +29,7 @@ typedef struct log_upres		//日志上传结果IE
 	unsigned short log_type;	//日志类型
 	unsigned short res;		//上传结果
 } LOG_UPRES;
+
+#pragma pack()
 
 #endif

@@ -3,6 +3,7 @@
 
 #include "../msg_head.h"
 
+#pragma pack(1)
 
 typedef struct dm_cycdelay		//周期性时延测量参数配置请求IE
 {
@@ -43,5 +44,7 @@ typedef struct dm_delaycfgans		//时延测量结果响应IE
 	unsigned char ray_num;		//光纤号
 	unsigned char res;		//返回结果
 } DM_DELAYCFGANS;
+
+#pragma pack()
 
 #endif

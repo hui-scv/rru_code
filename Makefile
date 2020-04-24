@@ -20,7 +20,7 @@ objs += interface/ftp/ftp_client.o
 
 rru : $(objs)
 ifeq ($(ARCH), ppc)
-	$(CC) $(objs) -DPPC $(CPPFLAGS) -lpthread -lm 5784api/lib5784api.a -o rru
+	$(CC) $(objs) -DPPC $(CPPFLAGS) -lpthread -lm -l5784api -L5784api -o rru
 else
 	$(CC) $(objs) $(CPPFLAGS) -lpthread -lm -o rru
 endif

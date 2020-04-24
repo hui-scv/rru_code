@@ -3,6 +3,7 @@
 
 #include "../msg_head.h"
 
+#pragma pack(1)
 
 typedef struct plt_cfg			//小区配置IE
 {
@@ -46,5 +47,7 @@ typedef struct plt_frepitans		//频点配置响应IE
 	unsigned char cir_num;		//载波号
 	unsigned int res;		//返回结果
 } PLT_FREPITANS;
+
+#pragma pack()
 
 #endif

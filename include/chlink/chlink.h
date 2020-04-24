@@ -3,7 +3,7 @@
 
 #include "../msg_head.h"
 
-
+#pragma pack(1)
 
 typedef struct cl_proid			//RRU产品标识IE
 {
@@ -200,6 +200,8 @@ typedef struct cl_verupdata		//版本更新结果指示IE
 	unsigned char soft_type;	//软件版本类型
 	unsigned int res;		//返回结果
 } CL_VERUPDATA;
+
+#pragma pack()
 
 #endif
 

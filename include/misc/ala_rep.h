@@ -3,6 +3,7 @@
 
 #include "../msg_head.h"
 
+#pragma pack(1)
 
 typedef struct ar_alarep		//告警上报请求IE
 {
@@ -50,4 +51,7 @@ typedef struct ar_alaexl
 	unsigned int a_220001;
 	unsigned int a_230001;
 }AR_ALAEXL;
+
+#pragma pack()
+
 #endif

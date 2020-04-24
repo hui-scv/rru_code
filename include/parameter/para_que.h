@@ -3,6 +3,7 @@
 
 #include "../msg_head.h"
 
+#pragma pack(1)
 
 typedef struct pq_systime		//系统时间查询IE
 {
@@ -134,5 +135,7 @@ typedef struct pq_stamachans		//状态机查询响应IE
 	unsigned short ie_size;		//IE长度
 	unsigned char state;		//状态机的状态
 } PQ_STAMACHANS;
+
+#pragma pack()
 
 #endif
